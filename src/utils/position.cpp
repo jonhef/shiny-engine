@@ -113,3 +113,8 @@ bool& Position::isBlackCastled() {
 bool& Position::isWhiteMove() {
     return this->whiteMove;
 }
+
+// NEW
+bool& Position::hasEnPassant() { return this->enPassant; }
+int& Position::getEnPassantX() { return this->enPassantX; }
+int& Position::getEnPassantY() { return this->enPassantY; }
