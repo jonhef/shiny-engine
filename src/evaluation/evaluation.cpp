@@ -15,12 +15,12 @@ double Evaluation::evaluate(Position pos) {
     result += Ratio(WHITE_QUEEN) * pos;
     result += Ratio(WHITE_KING) * pos;
 
-    result -= Ratio(BLACK_PAWN) * pos;
-    result -= Ratio(BLACK_KNIGHT) * pos;
-    result -= Ratio(BLACK_BISHOP) * pos;
-    result -= Ratio(BLACK_ROOK) * pos;
-    result -= Ratio(BLACK_QUEEN) * pos;
-    result -= Ratio(BLACK_KING) * pos;
+    result += Ratio(BLACK_PAWN) * pos;
+    result += Ratio(BLACK_KNIGHT) * pos;
+    result += Ratio(BLACK_BISHOP) * pos;
+    result += Ratio(BLACK_ROOK) * pos;
+    result += Ratio(BLACK_QUEEN) * pos;
+    result += Ratio(BLACK_KING) * pos;
 
     // Penalty for double white pawns
     int countDoublePawns = 0;

@@ -35,7 +35,7 @@ class Position {
     int enPassantX = -1;
     int enPassantY = -1;
 
-    bool whiteMove = false;
+    bool whiteMove = true;
 public:
     Position();
     Position(Position& pos);
@@ -72,6 +72,8 @@ public:
     int& getEnPassantY();       // reference to ep target rank (0..7) or -1
     std::pair<int, int> getEnPassantSquare() const;
     void setEnPassantSquare(std::pair<int, int> square);
+
+    bool isTerminal();
 };
 
 

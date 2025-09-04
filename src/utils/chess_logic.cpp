@@ -5,8 +5,10 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+
 #include "position.h"
 #include "figures.h"
+#include "chess_logic.h"
 
 // Representation of a move. Promotion piece is optional (0 = none, else one of WHITE_QUEEN ... BLACK_KING enum values).
 struct Move {
@@ -504,10 +506,38 @@ bool isCheckmate(const Position& pos, bool whiteToMove) {
     return legal.empty();
 }
 
-// Optionally, you can expose these functions via a header or use them from your engine directly.
-// Example usage:
-// Position p; bool white = p.isWhiteMove();
-// bool in_check = isCheck(p, white);
-// auto moves = getLegalMoves(p, white);
-// bool mate = isCheckmate(p, white);
+std::ostream& operator<<(std::ostream& os, const Move& move) {
+    // Конвертируем координаты в шахматную нотацию
+    // (0,0) соответствует a1
+    auto to_chess_notation = [](int x, int y) {
+        return std::string(1, 'a' + x) + std::to_string(y + 1);
+    };
 
+    // Обрабатываем специальные ходы
+    if (move.flag == CASTLE_SHORT) {
+        os << "O-O";
+        return os;
+    }
+    else if (move.flag == CASTLE_LONG) {
+        os << "O-O-O";
+        return os;
+    }
+
+    // Выводим обычный ход
+    os << to_chess_notation(move.fromX, move.fromY) 
+       << "-" 
+       << to_chess_notation(move.toX, move.toY);
+
+    // Добавляем информацию о превращении пешки
+    if (move.promoteTo != -1) {
+        const char pieces[] = {'Q', 'R', 'B', 'N'};
+        os << "=" << pieces[move.promoteTo];
+    }
+
+    // Добавляем информацию о взятии на проходе
+    if (move.flag == EN_PASSANT) {
+        os << " e.p.";
+    }
+
+    return os;
+}

@@ -31,7 +31,11 @@ struct Move {
 
     Move(int fx=0,int fy=0,int tx=0,int ty=0,int promo=-1, Flag fl=NONE)
         : fromX(fx), fromY(fy), toX(tx), toY(ty), promoteTo(promo), flag(fl) {}
+
+    Move(const Move& move) : fromX(move.fromX), fromY(move.fromY), toX(move.toX), toY(move.toY), promoteTo(move.promoteTo), flag(move.flag) {}
 };
+
+std::ostream& operator<<(std::ostream& os, const Move& move);
 
 // Core APIs you asked for:
 bool isCheck(const Position& pos, bool whiteToMove);

@@ -1,5 +1,6 @@
 #include "position.h"
 #include "figures.h"
+#include "chess_logic.h"
 
 Position::Position() {
     for (int i = 0; i < 8; ++i) {
@@ -151,4 +152,8 @@ std::pair<int, int> Position::getEnPassantSquare() const { return {this->enPassa
 void Position::setEnPassantSquare(std::pair<int, int> square) {
     enPassantX = square.first;
     enPassantY = square.second;
+}
+
+bool Position::isTerminal() {
+    return isCheckmate(*this, this->whiteMove);
 }
