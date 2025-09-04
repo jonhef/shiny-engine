@@ -47,15 +47,23 @@ public:
     Board& operator[](int index);
     Board operator[](int index) const;
 
+    bool getLongWhiteCastling() const;
+    bool getShortWhiteCastling() const;
+    bool getLongBlackCastling() const;
+    bool getShortBlackCastling() const;
+
     bool& getLongWhiteCastling();
     bool& getShortWhiteCastling();
     bool& getLongBlackCastling();
     bool& getShortBlackCastling();
 
     bool& isWhiteCastled();
+    bool isWhiteCastled() const;
     bool& isBlackCastled();
+    bool isBlackCastled() const;
 
     bool& isWhiteMove();
+    bool isWhiteMove() const;
 
     // NEW: expose en-passant controls
     bool& hasEnPassant();       // reference to 'enPassant' flag

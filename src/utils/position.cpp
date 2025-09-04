@@ -90,7 +90,15 @@ bool& Position::getLongWhiteCastling() {
     return this->longWhiteCastling;
 }
 
+bool Position::getLongWhiteCastling() const {
+    return this->longWhiteCastling;
+}
+
 bool& Position::getShortWhiteCastling() {
+    return this->shortWhiteCastling;
+}
+
+bool Position::getShortWhiteCastling() const {
     return this->shortWhiteCastling;
 }
 
@@ -98,7 +106,15 @@ bool& Position::getLongBlackCastling() {
     return this->longBlackCastling;
 }
 
+bool Position::getLongBlackCastling() const {
+    return this->longBlackCastling;
+}
+
 bool& Position::getShortBlackCastling() {
+    return this->shortBlackCastling;
+}
+
+bool Position::getShortBlackCastling() const {
     return this->shortBlackCastling;
 }
 
@@ -106,11 +122,23 @@ bool& Position::isWhiteCastled() {
     return this->whiteCastled;
 }
 
+bool Position::isWhiteCastled() const {
+    return this->whiteCastled;
+}
+
 bool& Position::isBlackCastled() {
     return this->blackCastled;
 }
 
+bool Position::isBlackCastled() const {
+    return this->blackCastled;
+}
+
 bool& Position::isWhiteMove() {
+    return this->whiteMove;
+}
+
+bool Position::isWhiteMove() const {
     return this->whiteMove;
 }
 
