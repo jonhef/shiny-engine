@@ -8,15 +8,15 @@
 #include "../utils/chess_logic.h"
 
 double alpha_beta(const Position& pos, int depth, double alpha, double beta, bool maximizing_player) {
-    if (depth == 0 || pos.isTerminal()) return Evaluation::evaluate(pos);
+    if (depth <= 0 || pos.isTerminal()) return Evaluation::evaluate(pos);
 
-    auto moves = getLegalMoves(pos, pos.isWhiteMove());
+    auto moves = getLegalMoves(pos);
     if (moves.empty()) return Evaluation::evaluate(pos);
 
     if (maximizing_player) {
         double max_eval = std::numeric_limits<double>::min();
         for (const Move& mv : moves) {
-            Position new_pos = applyMove(pos, mv, pos.isWhiteMove());
+            Position new_pos = applyMove(pos, mv);
             double eval = alpha_beta(new_pos, depth - 1, alpha, beta, false);
             max_eval = std::max(max_eval, eval);
             alpha = std::max(alpha, eval);
@@ -26,7 +26,7 @@ double alpha_beta(const Position& pos, int depth, double alpha, double beta, boo
     } else {
         double min_eval = std::numeric_limits<double>::max();
         for (const Move& mv : moves) {
-            Position new_pos = applyMove(pos, mv, pos.isWhiteMove());
+            Position new_pos = applyMove(pos, mv);
             double eval = alpha_beta(new_pos, depth - 1, alpha, beta, true);
             min_eval = std::min(min_eval, eval);
             beta = std::min(beta, eval);
@@ -40,11 +40,11 @@ Move find_best_move(const Position& pos, int depth) {
     Move best_move;
     double best_value = std::numeric_limits<double>::min();
 
-    auto moves = getLegalMoves(pos, pos.isWhiteMove());
+    auto moves = getLegalMoves(pos);
     if (moves.empty()) return best_move;
 
     for (const Move& mv : moves) {
-        Position new_pos = applyMove(pos, mv, pos.isWhiteMove());
+        Position new_pos = applyMove(pos, mv);
         double val = alpha_beta(new_pos, depth - 1,
                              std::numeric_limits<double>::min(),
                              std::numeric_limits<double>::max(),

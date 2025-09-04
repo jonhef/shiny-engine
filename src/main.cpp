@@ -1,29 +1,50 @@
 #include <iostream>
-
-#include "searching/alpha_beta.h"
 #include "utils/position.h"
-#include "utils/fen_utils.h"
 #include "utils/chess_logic.h"
-#include "evaluation/evaluation.h"
+#include "utils/figures.h"
+#include "searching/alpha_beta.h"
+#include "utils/fen_utils.h"
 
-int main(int argc, char* argv[]) {
-    std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    Position initial;
-    decodeFEN(fen, initial);
+int main() {
+    Position pos;  // стандартная начальная позиция
+    pos.isWhiteMove() = true;
 
-    int search_depth = 20;
+    decodeFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", pos);
 
-    std::cout << "Enter depth: ";
+    int depth = 4;
+    std::cout << "Enter depth: " << std::endl;
+    std::cin >> depth;
 
-    std::cin >> search_depth;
-    
-    std::cout << encodeFEN(initial) << std::endl;
+    int moveCount = 0;
 
-    std::cout << "Evaluation for initial position: " << (Evaluation::evaluate(initial) / 100) << std::endl;
+    while(true) {
+        auto legalMoves = getLegalMoves(pos);
 
-    Move best_move = find_best_move(initial, search_depth);
+        if(legalMoves.empty()) {
+            if(isCheck(pos)) {
+                std::cout << (pos.isWhiteMove() ? "Black" : "White") << " wins by checkmate!\n";
+            } else {
+                std::cout << "Draw by stalemate!\n";
+            }
+            break;
+        }
 
-    std::cout << "Evaluation for the next best move: " << alpha_beta(applyMove(initial, best_move, false), search_depth) / 100 << std::endl;
+        // Выбор лучшего хода через alpha-beta поиск
+        Move bestMove = find_best_move(pos, depth);
 
-    std::cout << best_move << std::endl;
+        // Вывод хода
+        std::cout << moveCount + 1 << ". " << (pos.isWhiteMove() ? "White" : "Black")
+                  << ": " << bestMove << "\n";
+
+        // Применение хода
+        pos = applyMove(pos, bestMove);
+
+        moveCount++;
+        if(moveCount >= 200) { // ограничение на число ходов
+            std::cout << "Draw by move limit.\n";
+            break;
+        }
+    }
+
+    return 0;
 }

@@ -23,6 +23,10 @@ Position::Position() {
     longWhiteCastling = shortWhiteCastling = false;
     longBlackCastling = shortBlackCastling = false;
 
+    whiteMove = true;
+    whiteCastled = false;
+    blackCastled = false;
+
     enPassant = false;
     enPassantX = -1;  // NEW
     enPassantY = -1;
@@ -46,6 +50,19 @@ Position::Position(Position& pos) {
             this->black_kings[i][j] = pos.black_kings[i][j];
         }
     }
+
+    this->longWhiteCastling = pos.longWhiteCastling;
+    this->shortWhiteCastling = pos.shortWhiteCastling;
+    this->longBlackCastling = pos.longBlackCastling;
+    this->shortBlackCastling = pos.shortBlackCastling;
+
+    this->whiteCastled = pos.whiteCastled;
+    this->blackCastled = pos.blackCastled;
+    this->whiteMove = pos.whiteMove;
+
+    this->enPassant = pos.enPassant;
+    this->enPassantX = pos.enPassantX;
+    this->enPassantY = pos.enPassantY;
 }
 
 Position::Position(const Position& pos) {
@@ -66,6 +83,19 @@ Position::Position(const Position& pos) {
             this->black_kings[i][j] = pos.black_kings[i][j];
         }
     }
+
+    this->longWhiteCastling = pos.longWhiteCastling;
+    this->shortWhiteCastling = pos.shortWhiteCastling;
+    this->longBlackCastling = pos.longBlackCastling;
+    this->shortBlackCastling = pos.shortBlackCastling;
+
+    this->whiteCastled = pos.whiteCastled;
+    this->blackCastled = pos.blackCastled;
+    this->whiteMove = pos.whiteMove;
+
+    this->enPassant = pos.enPassant;
+    this->enPassantX = pos.enPassantX;
+    this->enPassantY = pos.enPassantY;
 }
 
 Position::~Position() {
@@ -89,7 +119,7 @@ Board& Position::operator[](Figures figure) {
     }
 }
 
-Board Position::operator[](Figures figure) const {
+const Board& Position::operator[](Figures figure) const {
     switch (figure) {
         case WHITE_PAWN:   return white_pawns;
         case WHITE_KNIGHT: return white_knights;
@@ -125,7 +155,7 @@ Board& Position::operator[](int figure) {
     }
 }
 
-Board Position::operator[](int figure) const {
+const Board& Position::operator[](int figure) const {
     switch (figure) {
         case WHITE_PAWN:   return white_pawns;
         case WHITE_KNIGHT: return white_knights;
@@ -211,5 +241,5 @@ void Position::setEnPassantSquare(std::pair<int, int> square) {
 }
 
 bool Position::isTerminal() const {
-    return isCheckmate(*this, this->whiteMove);
+    return isCheckmate(*this);
 }

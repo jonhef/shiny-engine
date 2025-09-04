@@ -53,6 +53,6 @@ Row& Board::operator[](int index) {
     return board[index];
 }
 
-Row Board::operator[](int index) const {
+const Row& Board::operator[](int index) const {
     return board[index];
 }

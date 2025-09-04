@@ -43,10 +43,10 @@ public:
     ~Position();
 
     Board& operator[](Figures figure);
-    Board operator[](Figures figure) const;
+    const Board& operator[](Figures figure) const;
 
     Board& operator[](int index);
-    Board operator[](int index) const;
+    const Board& operator[](int index) const;
 
     bool getLongWhiteCastling() const;
     bool getShortWhiteCastling() const;

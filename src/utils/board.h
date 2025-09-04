@@ -21,7 +21,7 @@ public:
     ~Board();
 
     Row& operator[](int index); 
-    Row operator[](int index) const;
+    const Row& operator[](int index) const;
 };
 
 #endif // BOARD_H

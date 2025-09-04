@@ -28,9 +28,8 @@ add_executable(shiny-engine
 )
 
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -g -O1")
-set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O1")
 
-
+set(CMAKE_CXX_FLAGS_LINKER "${CMAKE_CXX_FLAGS_LINKER} -stack_size=268435456")
 
 target_include_directories(shiny-engine PRIVATE src)

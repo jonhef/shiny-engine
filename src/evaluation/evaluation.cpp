@@ -4,11 +4,11 @@
 #include "../utils/board.h"
 #include "../utils/position.h"
 #include "../utils/chess_logic.h"
-#include <iostream>
 
 double Evaluation::evaluate(Position pos) {
-    double result = 0;
+    double result = 0.0;
 
+    // --- Материальные ценности в сантипешках ---
     result += Ratio(WHITE_PAWN) * pos;
     result += Ratio(WHITE_KNIGHT) * pos;
     result += Ratio(WHITE_BISHOP) * pos;
@@ -23,155 +23,105 @@ double Evaluation::evaluate(Position pos) {
     result += Ratio(BLACK_QUEEN) * pos;
     result += Ratio(BLACK_KING) * pos;
 
-    // Penalty for double white pawns
-    int countDoublePawns = 0;
-    for (int i = 0; i < 8; ++i) {
-        bool pawnThere = false;
-        for (int j = 1; j < 8; ++j) {
-            if (pos[WHITE_PAWN][j][i]) {
-                if (pawnThere) {
-                    countDoublePawns++;
-                    continue;
+    // --- Пешки: двойные и изолированные ---
+    auto countDoublePawns = [](const Position &p, Figures pawn) {
+        int cnt = 0;
+        for (int col = 0; col < 8; ++col) {
+            bool pawnThere = false;
+            for (int row = 0; row < 8; ++row) {
+                if (p[pawn][row][col]) {
+                    if (pawnThere) cnt++;
+                    pawnThere = true;
                 }
-                pawnThere = true;
             }
         }
-    }
-    result -= countDoublePawns * PENALTY_DOUBLE_PAWNS;
-
-    // Penalty for double black pawns
-    countDoublePawns = 0;
-    for (int i = 0; i < 8; ++i) {
-        bool pawnThere = false;
-        for (int j = 1; j < 8; ++j) {
-            if (pos[BLACK_PAWN][j][i]) {
-                if (pawnThere) {
-                    countDoublePawns++;
-                    continue;
-                }
-                pawnThere = true;
-            }
-        }
-    }
-    result += countDoublePawns * PENALTY_DOUBLE_PAWNS;
-
-    // Penalty for isolated white pawns
-    int isolatedPawns = 0, isTherePawn = 0b00000000;
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 1; j < 8; ++j) {
-            if (pos[WHITE_PAWN][j][i]) {
-                isTherePawn ^= (1 << i);
-            }
-        }
-    }
-    
-    for (isTherePawn <<= 1; isTherePawn != 0; isTherePawn >>= 1) {
-        if ((isTherePawn & 0b111) == 0b010) {
-            ++isolatedPawns;
-        }
-    }
-
-    result -= isolatedPawns * PENALTY_ISOLATED_PAWNS;
-
-    // Penalty for isolated black pawns
-    isolatedPawns = 0, isTherePawn = 0;
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 1; j < 8; ++j) {
-            if (pos[BLACK_PAWN][j][i]) {
-                isTherePawn ^= (1 << i);
-            }
-        }
-    }
-
-    for (isTherePawn <<= 1; isTherePawn != 0; isTherePawn >>= 1) {
-        if ((isTherePawn & 0b111) == 0b010) {
-            ++isolatedPawns;
-        }
-    }
-
-    result += isolatedPawns * PENALTY_ISOLATED_PAWNS;
-
-    // Penalty for not castled while it is possible for white
-    if (!pos.isWhiteCastled() && (pos.getLongWhiteCastling() || pos.getShortWhiteCastling())) {
-        result -= PENALTY_NOT_CASTLED_IF_POSSIBLE;
-    }
-
-    // Penalty for not castled while it is possible for black
-    if (!pos.isBlackCastled() && (pos.getLongBlackCastling() || pos.getShortBlackCastling())) {
-        result += PENALTY_NOT_CASTLED_IF_POSSIBLE;
-    }
-
-    // Penalty for not castled at all for white
-    if (!pos.isWhiteCastled() && !pos.getLongWhiteCastling() && !pos.getShortWhiteCastling()) {
-        result -= PENALTY_NOT_CASTLED;
-    }
-
-    // Penalty for not castled at all for black
-    if (!pos.isBlackCastled() && !pos.getLongBlackCastling() && !pos.getShortBlackCastling()) {
-        result += PENALTY_NOT_CASTLED;
-    }
-
-    // Reward for rook at an open tile for white
-    int openTilesWhite = 0b00000000, 
-        openTilesBlack = 0b00000000, 
-        fullOpenTiles = 0b00000000;
-    for (int i = 0; i < 8; ++i) {
-        bool isPawnAtTileWhite = false, isPawnAtTileBlack = false;
-        for (int j = 1; j < 8; ++j) {
-            if (pos[WHITE_PAWN][j][i]) {
-                isPawnAtTileWhite = true;
-            }
-            if (pos[BLACK_PAWN][j][i]) {
-                isPawnAtTileBlack = true;
-            }
-        }
-
-        openTilesWhite |= (int(isPawnAtTileBlack & !isPawnAtTileWhite) << i);
-        openTilesBlack |= (int(!isPawnAtTileBlack & isPawnAtTileWhite) << i);
-        fullOpenTiles |= (int(!isPawnAtTileWhite && !isPawnAtTileBlack) << i);
-    }
-
-    int whiteRooks = 0b00000000, blackRooks = 0b00000000;
-    for (int i = 0; i < 8; ++i) {
-        bool isRookAtTileWhite = false, isRookAtTileBlack = false;
-        for (int j = 0; j < 8; ++j) {
-            if (pos[WHITE_ROOK][j][i]) {
-                isRookAtTileWhite = true;
-            }
-            if (pos[BLACK_ROOK][j][i]) {
-                isRookAtTileBlack = true;
-            }
-        }
-        
-        whiteRooks |= (int(isRookAtTileWhite) << i);
-        blackRooks |= (int(isRookAtTileBlack) << i);
-    }
-
-    int whiteRooksAtOpenTiles     = whiteRooks & openTilesWhite,
-        whiteRooksAtFullOpenTiles = whiteRooks & fullOpenTiles,
-        blackRooksAtOpenTiles     = blackRooks & openTilesBlack,
-        blackRooksAtFullOpenTiles = blackRooks & fullOpenTiles;
-
-    auto countBits = [](const int number) {
-        int count = 0, temp = number;
-        while (temp > 0) {
-            if ((temp & 0b1) == 0b1)
-                ++count;
-            temp >>= 1;
-        }
-        return count;
+        return cnt;
     };
 
-    result += REWARD_ROOK_OPEN_TILE * countBits(whiteRooksAtOpenTiles);
-    result -= REWARD_ROOK_OPEN_TILE * countBits(blackRooksAtOpenTiles);
+    auto countIsolatedPawns = [](const Position &p, Figures pawn) {
+        int isolated = 0;
+        for (int col = 0; col < 8; ++col) {
+            bool left = (col > 0), right = (col < 7);
+            bool hasNeighbor = false;
+            for (int row = 0; row < 8; ++row) {
+                if ((left && p[pawn][row][col-1]) || (right && p[pawn][row][col+1]))
+                    hasNeighbor = true;
+            }
+            for (int row = 0; row < 8; ++row) {
+                if (p[pawn][row][col] && !hasNeighbor) isolated++;
+            }
+        }
+        return isolated;
+    };
 
-    result += REWARD_ROOK_FULLOPEN_TILE * countBits(whiteRooksAtFullOpenTiles);
-    result += REWARD_ROOK_FULLOPEN_TILE * countBits(blackRooksAtFullOpenTiles);
+    result -= PENALTY_DOUBLE_PAWNS * countDoublePawns(pos, WHITE_PAWN);
+    result += PENALTY_DOUBLE_PAWNS * countDoublePawns(pos, BLACK_PAWN);
 
-    // Check for mate
-    if (isCheckmate(pos, pos.isWhiteMove())) {
-        result += 1000 * (pos.isWhiteMove() ? 1 : -1);
+    result -= PENALTY_ISOLATED_PAWNS * countIsolatedPawns(pos, WHITE_PAWN);
+    result += PENALTY_ISOLATED_PAWNS * countIsolatedPawns(pos, BLACK_PAWN);
+
+    // --- Централизация фигур ---
+    auto centralizationBonus = [](const Position &p, Figures piece) {
+        double bonus = 0;
+        for (int row = 0; row < 8; ++row) {
+            for (int col = 0; col < 8; ++col) {
+                if (p[piece][row][col]) {
+                    // центр: d4, e4, d5, e5
+                    int distRow = std::abs(3.5 - row);
+                    int distCol = std::abs(3.5 - col);
+                    bonus += (4.0 - (distRow + distCol)) * 10.0; // вес 10 сантипешек
+                }
+            }
+        }
+        return bonus;
+    };
+
+    result += centralizationBonus(pos, WHITE_KNIGHT);
+    result += centralizationBonus(pos, WHITE_BISHOP);
+    result += centralizationBonus(pos, WHITE_QUEEN);
+    result -= centralizationBonus(pos, BLACK_KNIGHT);
+    result -= centralizationBonus(pos, BLACK_BISHOP);
+    result -= centralizationBonus(pos, BLACK_QUEEN);
+
+    // --- Рокировка и безопасность короля ---
+    if (!pos.isWhiteCastled() && (pos.getShortWhiteCastling() || pos.getLongWhiteCastling()))
+        result -= PENALTY_NOT_CASTLED_IF_POSSIBLE;
+    if (!pos.isBlackCastled() && (pos.getShortBlackCastling() || pos.getLongBlackCastling()))
+        result += PENALTY_NOT_CASTLED_IF_POSSIBLE;
+
+    if (!pos.isWhiteCastled() && !pos.getShortWhiteCastling() && !pos.getLongWhiteCastling())
+        result -= PENALTY_NOT_CASTLED;
+    if (!pos.isBlackCastled() && !pos.getShortBlackCastling() && !pos.getLongBlackCastling())
+        result += PENALTY_NOT_CASTLED;
+
+    // --- Ладьи на открытых и полностью открытых линиях ---
+    auto rookOpenLineBonus = [](const Position &p, Figures rook, Figures pawnOpp, Figures pawnSelf) {
+        int bonus = 0;
+        for (int col = 0; col < 8; ++col) {
+            bool hasPawnSelf = false, hasPawnOpp = false;
+            for (int row = 0; row < 8; ++row) {
+                if (p[pawnSelf][row][col]) hasPawnSelf = true;
+                if (p[pawnOpp][row][col]) hasPawnOpp = true;
+            }
+            for (int row = 0; row < 8; ++row) {
+                if (p[rook][row][col]) {
+                    if (!hasPawnSelf && hasPawnOpp) bonus += REWARD_ROOK_OPEN_TILE;
+                    if (!hasPawnSelf && !hasPawnOpp) bonus += REWARD_ROOK_FULLOPEN_TILE;
+                }
+            }
+        }
+        return bonus;
+    };
+
+    result += rookOpenLineBonus(pos, WHITE_ROOK, BLACK_PAWN, WHITE_PAWN);
+    result -= rookOpenLineBonus(pos, BLACK_ROOK, WHITE_PAWN, BLACK_PAWN);
+
+    // --- Проверка мата ---
+    if (isCheckmate(pos)) {
+        result += 10000 * (pos.isWhiteMove() ? 1 : -1);
     }
 
+    // --- Конечная нормализация ---
+    // всё в сантипешках (100 = 1 пешка)
     return result;
 }

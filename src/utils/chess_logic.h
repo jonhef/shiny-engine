@@ -38,12 +38,12 @@ struct Move {
 std::ostream& operator<<(std::ostream& os, const Move& move);
 
 // Core APIs you asked for:
-bool isCheck(const Position& pos, bool whiteToMove);
-bool isCheckmate(const Position& pos, bool whiteToMove);
-std::vector<Move> getLegalMoves(const Position& pos, bool whiteToMove);
+bool isCheck(const Position& pos);
+bool isCheckmate(const Position& pos);
+std::vector<Move> getLegalMoves(const Position& pos);
 
 // (Optionally useful for your engine/UI)
-std::vector<Move> generatePseudoMoves(const Position& pos, bool whiteToMove);
-Position applyMove(const Position& pos, const Move& mv, bool whiteToMove);
+std::vector<Move> generatePseudoMoves(const Position& pos);
+Position applyMove(const Position& pos, const Move& mv);
 
 #endif // CHESS_LOGIC_H
