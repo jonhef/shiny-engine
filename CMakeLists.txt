@@ -27,4 +27,10 @@ add_executable(shiny-engine
     src/utils/ratio.h
 )
 
+set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -g -O1")
+set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+
+
+
 target_include_directories(shiny-engine PRIVATE src)

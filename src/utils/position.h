@@ -73,7 +73,7 @@ public:
     std::pair<int, int> getEnPassantSquare() const;
     void setEnPassantSquare(std::pair<int, int> square);
 
-    bool isTerminal();
+    bool isTerminal() const;
 };
 
 

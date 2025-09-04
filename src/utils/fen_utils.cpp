@@ -21,7 +21,7 @@ char pieceToChar(int piece) {
         case BLACK_ROOK:   return 'r';
         case BLACK_QUEEN:  return 'q';
         case BLACK_KING:   return 'k';
-        default:           return ' ';
+        default:           return '1';
     }
 }
 
@@ -82,12 +82,50 @@ void setPieceAt(Position& pos, int row, int col, int piece) {
     }
 }
 
+void decodeFEN(const std::string &fen, Position& board) {
+    std::istringstream iss(fen);
+    std::string rowStr;
+    int fenRow = 0;
+
+    // Считаем строки до пробела (только доска)
+    while (std::getline(iss, rowStr, ' ') && fenRow < 1) {
+        // берем первую часть FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR
+        std::string boardPart = rowStr;
+        std::vector<std::string> rows;
+        std::istringstream rowStream(boardPart);
+        std::string s;
+        while (std::getline(rowStream, s, '/')) {
+            rows.push_back(s);
+        }
+
+        for (int r = 0; r < 8; ++r) {
+            const std::string &line = rows[r];
+            int row = 7 - r;  // FEN верхняя строка = row 7
+            int col = 0;
+            for (char c : line) {
+                if (std::isdigit(c)) {
+                    int emptyCount = c - '0';
+                    for (int i = 0; i < emptyCount; ++i) {
+                        setPieceAt(board, col, row, EMPTY);
+                        col++;
+                    }
+                } else {
+                    int piece = charToPiece(c);
+                    setPieceAt(board, col, row, piece);
+                    col++;
+                }
+            }
+        }
+        fenRow++;
+    }
+}
+
 std::string encodeFEN(const Position& pos) {
     std::string fen;
-    for (int row = 0; row < 8; ++row) {
+    for (int r = 7; r >= 0; --r) {  // сверху вниз, чтобы FEN был правильным
         int emptyCount = 0;
-        for (int col = 0; col < 8; ++col) {
-            int piece = getPieceAt(pos, row, col);
+        for (int c = 0; c < 8; ++c) {
+            int piece = getPieceAt(pos, c, r);
             if (piece == EMPTY) {
                 emptyCount++;
             } else {
@@ -98,38 +136,8 @@ std::string encodeFEN(const Position& pos) {
                 fen += pieceToChar(piece);
             }
         }
-        if (emptyCount > 0) {
-            fen += std::to_string(emptyCount);
-        }
-        if (row < 7) {
-            fen += '/';
-        }
+        if (emptyCount > 0) fen += std::to_string(emptyCount);
+        if (r > 0) fen += '/';
     }
     return fen;
-}
-
-void decodeFEN(const std::string &fen, Position& board) {
-    std::vector<std::string> rows;
-    std::istringstream iss(fen);
-    std::string rowStr;
-    while (std::getline(iss, rowStr, '/') && rows.size() < 8) {
-        rows.push_back(rowStr);
-    }
-    
-    for (int row = 0; row < 8; ++row) {
-        int col = 0;
-        for (char c : rows[row]) {
-            if (std::isdigit(c)) {
-                int numEmpty = c - '0';
-                for (int i = 0; i < numEmpty; ++i) {
-                    setPieceAt(board, row, col, int(EMPTY));
-                    col++;
-                }
-            } else {
-                int piece = charToPiece(c);
-                setPieceAt(board, row, col, piece);
-                col++;
-            }
-        }
-    }
 }

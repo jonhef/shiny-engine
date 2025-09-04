@@ -210,6 +210,6 @@ void Position::setEnPassantSquare(std::pair<int, int> square) {
     enPassantY = square.second;
 }
 
-bool Position::isTerminal() {
+bool Position::isTerminal() const {
     return isCheckmate(*this, this->whiteMove);
 }

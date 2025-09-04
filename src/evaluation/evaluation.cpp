@@ -4,6 +4,7 @@
 #include "../utils/board.h"
 #include "../utils/position.h"
 #include "../utils/chess_logic.h"
+#include <iostream>
 
 double Evaluation::evaluate(Position pos) {
     double result = 0;

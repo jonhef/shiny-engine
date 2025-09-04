@@ -10,7 +10,7 @@ char pieceToChar(int piece);
 int charToPiece(char c);
 
 int getPieceAt(const Position& pos, int row, int col);
-void setPieceAt(Position& pos, int row, int col, Figures piece);
+void setPieceAt(Position& pos, int row, int col, int piece);
 
 std::string encodeFEN(const Position& pos);
 void decodeFEN(const std::string &fen, Position& board);

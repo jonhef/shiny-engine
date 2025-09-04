@@ -7,61 +7,53 @@
 #include "../evaluation/evaluation.h"
 #include "../utils/chess_logic.h"
 
-int alpha_beta(
-    Position pos, 
-    int depth, 
-    int alpha, 
-    int beta, 
-    bool maximizing_player
-) {
-    if (depth == 0 || pos.isTerminal()) {
-        return Evaluation::evaluate(pos);
-    }
+double alpha_beta(const Position& pos, int depth, double alpha, double beta, bool maximizing_player) {
+    if (depth == 0 || pos.isTerminal()) return Evaluation::evaluate(pos);
+
+    auto moves = getLegalMoves(pos, pos.isWhiteMove());
+    if (moves.empty()) return Evaluation::evaluate(pos);
 
     if (maximizing_player) {
-        int max_eval = std::numeric_limits<int>::min();
-        for (const Move& move : getLegalMoves(pos, pos.isWhiteMove())) {
-            Position new_pos(pos);
-            applyMove(new_pos, move, new_pos.isWhiteMove());
-            int eval = alpha_beta(new_pos, depth - 1, alpha, beta, false);
+        double max_eval = std::numeric_limits<double>::min();
+        for (const Move& mv : moves) {
+            Position new_pos = applyMove(pos, mv, pos.isWhiteMove());
+            double eval = alpha_beta(new_pos, depth - 1, alpha, beta, false);
             max_eval = std::max(max_eval, eval);
             alpha = std::max(alpha, eval);
-            if (beta <= alpha) {
-                break;
-            }
+            if (alpha >= beta) break;
         }
         return max_eval;
     } else {
-        int min_eval = std::numeric_limits<int>::max();
-        for (const Move& move : getLegalMoves(pos, pos.isWhiteMove())) {
-            Position new_pos(pos);
-            int eval = alpha_beta(new_pos, depth - 1, alpha, beta, true);
+        double min_eval = std::numeric_limits<double>::max();
+        for (const Move& mv : moves) {
+            Position new_pos = applyMove(pos, mv, pos.isWhiteMove());
+            double eval = alpha_beta(new_pos, depth - 1, alpha, beta, true);
             min_eval = std::min(min_eval, eval);
             beta = std::min(beta, eval);
-            if (beta <= alpha) {
-                break;
-            }
+            if (beta <= alpha) break;
         }
         return min_eval;
     }
 }
 
-Move find_best_move(Position pos, int depth) {
+Move find_best_move(const Position& pos, int depth) {
     Move best_move;
-    int best_value = std::numeric_limits<int>::min();
+    double best_value = std::numeric_limits<double>::min();
 
-    for (const Move& move : getLegalMoves(pos, pos.isWhiteMove())) {
-        Position new_pos = applyMove(pos, move, pos.isWhiteMove());
-        int move_value = alpha_beta(new_pos, depth - 1, 
-                                  std::numeric_limits<int>::min(),
-                                  std::numeric_limits<int>::max(),
-                                  false); // Следующий ход - минимизирующего игрока
-        
-        if (move_value > best_value) {
-            best_value = move_value;
-            best_move = move;
+    auto moves = getLegalMoves(pos, pos.isWhiteMove());
+    if (moves.empty()) return best_move;
+
+    for (const Move& mv : moves) {
+        Position new_pos = applyMove(pos, mv, pos.isWhiteMove());
+        double val = alpha_beta(new_pos, depth - 1,
+                             std::numeric_limits<double>::min(),
+                             std::numeric_limits<double>::max(),
+                             false);
+        if (val > best_value) {
+            best_value = val;
+            best_move = mv;
         }
     }
-    
+
     return best_move;
 }

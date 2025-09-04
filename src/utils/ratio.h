@@ -1,21 +1,20 @@
 #ifndef RATIO_H
 #define RATIO_H
 
-#include <string>
-
 #include "position.h"
-#include "board.h"
+#include "figures.h"
 
 class Ratio {
+public:
     double coeffecients[8][8];
     Figures piece;
-public:
+
     Ratio();
-    Ratio(Figures piece);
     Ratio(double coeffecients[8][8], Figures piece);
+    Ratio(Figures piece);
     ~Ratio();
 
-    double operator*(Position pos);
+    double operator*(const Position& pos);
 };
 
 #endif // RATIO_H
