@@ -19,11 +19,12 @@ Position::Position() {
             black_kings[i][j] = 0;
         }
     }
-    castling[0] = false;
-    castling[1] = false;
-    castling[2] = false;
-    castling[3] = false;
+    longWhiteCastling = shortWhiteCastling = false;
+    longBlackCastling = shortBlackCastling = false;
+
     enPassant = false;
+    enPassantX = -1;  // NEW
+    enPassantY = -1;
 }
 
 Position::Position(Position& pos) {
@@ -83,4 +84,32 @@ Board Position::operator[](Figures figure) const {
         case BLACK_KING:   return black_kings;
         default:           return white_pawns;
     }
+}
+
+bool& Position::getLongWhiteCastling() {
+    return this->longWhiteCastling;
+}
+
+bool& Position::getShortWhiteCastling() {
+    return this->shortWhiteCastling;
+}
+
+bool& Position::getLongBlackCastling() {
+    return this->longBlackCastling;
+}
+
+bool& Position::getShortBlackCastling() {
+    return this->shortBlackCastling;
+}
+
+bool& Position::isWhiteCastled() {
+    return this->whiteCastled;
+}
+
+bool& Position::isBlackCastled() {
+    return this->blackCastled;
+}
+
+bool& Position::isWhiteMove() {
+    return this->whiteMove;
 }

@@ -22,8 +22,20 @@ class Position {
     Board black_queens;
     Board black_kings;
 
-    bool castling[4];
-    bool enPassant;
+    bool longWhiteCastling = false;
+    bool shortWhiteCastling = false;
+
+    bool longBlackCastling = false;
+    bool shortBlackCastling = false;
+
+    bool whiteCastled = false;
+    bool blackCastled = false;
+
+    bool enPassant = false;
+    int enPassantX = -1;
+    int enPassantY = -1;
+
+    bool whiteMove = false;
 public:
     Position();
     Position(Position& pos);
@@ -34,6 +46,16 @@ public:
 
     Board& operator[](int index);
     Board operator[](int index) const;
+
+    bool& getLongWhiteCastling();
+    bool& getShortWhiteCastling();
+    bool& getLongBlackCastling();
+    bool& getShortBlackCastling();
+
+    bool& isWhiteCastled();
+    bool& isBlackCastled();
+
+    bool& isWhiteMove();
 };
 
 
