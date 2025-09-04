@@ -1,3 +1,0 @@
-/Users/jonhef/shiny-engine/CMakeFiles/shiny-engine.dir
-/Users/jonhef/shiny-engine/CMakeFiles/edit_cache.dir
-/Users/jonhef/shiny-engine/CMakeFiles/rebuild_cache.dir
