@@ -1,3 +1,6 @@
+#ifndef FIGURES_H
+#define FIGURES_H
+
 enum Figures {
     EMPTY = 0,
     PAWN = 100,
@@ -21,3 +24,5 @@ enum Figures {
     BLACK_QUEEN = -900,
     BLACK_KING = -400
 };
+
+#endif // FIGURES_H

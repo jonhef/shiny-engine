@@ -7,7 +7,7 @@
 
 #include "figures.h"
 
-char pieceToChar(Figures piece) {
+char pieceToChar(int piece) {
     switch (piece) {
         case WHITE_PAWN:   return 'P';
         case WHITE_KNIGHT: return 'N';
@@ -122,7 +122,7 @@ void decodeFEN(const std::string &fen, Position& board) {
             if (std::isdigit(c)) {
                 int numEmpty = c - '0';
                 for (int i = 0; i < numEmpty; ++i) {
-                    setPieceAt(board, row, col, EMPTY);
+                    setPieceAt(board, row, col, int(EMPTY));
                     col++;
                 }
             } else {

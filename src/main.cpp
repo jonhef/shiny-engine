@@ -12,6 +12,12 @@ int main(int argc, char* argv[]) {
 
     int search_depth = 5;
 
+    auto legalMoves = getLegalMoves(initial, initial.isWhiteMove());
+
+    for (auto mv : legalMoves) {
+        std::cout << mv << std::endl;
+    }
+
     Move best_move = find_best_move(initial, search_depth);
 
     std::cout << best_move;

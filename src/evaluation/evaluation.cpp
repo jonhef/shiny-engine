@@ -154,7 +154,7 @@ double Evaluation::evaluate(Position pos) {
     auto countBits = [](const int number) {
         int count = 0, temp = number;
         while (temp > 0) {
-            if (temp & 0b1 == 0b1)
+            if ((temp & 0b1) == 0b1)
                 ++count;
             temp >>= 1;
         }

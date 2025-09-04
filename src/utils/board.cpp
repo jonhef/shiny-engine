@@ -1,5 +1,27 @@
 #include "board.h"
 
+Row::Row() {
+    for (int i = 0; i < 8; ++i) {
+        this->row[i] = false;
+    }
+}
+
+Row::Row(int row[8]) {
+    for (int i = 0; i < 8; ++i) {
+        this->row[i] = (bool)row[i];
+    }
+}
+
+Row::~Row() {   }
+
+bool& Row::operator[](int index) {
+    return this->row[index];
+}
+
+bool Row::operator[](int index) const {
+    return this->row[index];
+}
+
 Board::Board() {
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {

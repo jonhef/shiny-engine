@@ -9,6 +9,7 @@ public:
     ~Row();
 
     bool& operator[](int index);
+    bool operator[](int index) const;
 };
 
 class Board {
