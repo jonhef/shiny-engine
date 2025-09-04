@@ -25,8 +25,8 @@ inline bool inBounds(int x, int y) {
 
 // Utility: iterate all piece types of a side
 inline std::pair<int,int> sideRange(bool white) {
-    if (white) return {WHITE_PAWN, WHITE_KING};
-    return {BLACK_PAWN, BLACK_KING};
+    if (white) return std::pair<int, int>(WHITE_PAWN, WHITE_KING);
+    return std::pair<int, int>(BLACK_PAWN, BLACK_KING);
 }
 
 // Check if target square contains any friendly piece (for side whiteToMove)
@@ -49,7 +49,7 @@ auto isEnemyAt = [&](const Position& pos, bool whiteToMove, int x, int y) -> boo
 
 // Find the king position for given side
 std::pair<int,int> findKing(const Position& pos, bool white) {
-    Figures king = white ? WHITE_KING : BLACK_KING;
+    Figures king = Figures(white ? WHITE_KING : BLACK_KING);
     Board b = pos[king];
     for (int x = 0; x < 8; ++x) for (int y = 0; y < 8; ++y)
         if (b[x][y]) return {x,y};

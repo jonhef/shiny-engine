@@ -39,6 +39,7 @@ class Position {
 public:
     Position();
     Position(Position& pos);
+    Position(const Position& pos);
     ~Position();
 
     Board& operator[](Figures figure);
@@ -69,6 +70,8 @@ public:
     bool& hasEnPassant();       // reference to 'enPassant' flag
     int& getEnPassantX();       // reference to ep target file (0..7) or -1
     int& getEnPassantY();       // reference to ep target rank (0..7) or -1
+    std::pair<int, int> getEnPassantSquare() const;
+    void setEnPassantSquare(std::pair<int, int> square);
 };
 
 
