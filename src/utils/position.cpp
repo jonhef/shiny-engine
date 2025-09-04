@@ -1,0 +1,86 @@
+#include "position.h"
+#include "figures.h"
+
+Position::Position() {
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            white_pawns[i][j] = 0;
+            white_knights[i][j] = 0;
+            white_bishops[i][j] = 0;
+            white_rooks[i][j] = 0;
+            white_queens[i][j] = 0;
+            white_kings[i][j] = 0;
+
+            black_pawns[i][j] = 0;
+            black_knights[i][j] = 0;
+            black_bishops[i][j] = 0;
+            black_rooks[i][j] = 0;
+            black_queens[i][j] = 0;
+            black_kings[i][j] = 0;
+        }
+    }
+    castling[0] = false;
+    castling[1] = false;
+    castling[2] = false;
+    castling[3] = false;
+    enPassant = false;
+}
+
+Position::Position(Position& pos) {
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            this->white_pawns[i][j] = pos.white_pawns[i][j];
+            this->white_knights[i][j] = pos.white_knights[i][j];
+            this->white_bishops[i][j] = pos.white_bishops[i][j];
+            this->white_rooks[i][j] = pos.white_rooks[i][j];
+            this->white_queens[i][j] = pos.white_queens[i][j];
+            this->white_kings[i][j] = pos.white_kings[i][j];
+
+            this->black_pawns[i][j] = pos.black_pawns[i][j];
+            this->black_knights[i][j] = pos.black_knights[i][j];
+            this->black_bishops[i][j] = pos.black_bishops[i][j];
+            this->black_rooks[i][j] = pos.black_rooks[i][j];
+            this->black_queens[i][j] = pos.black_queens[i][j];
+            this->black_kings[i][j] = pos.black_kings[i][j];
+        }
+    }
+}
+
+Position::~Position() {
+}
+
+Board& Position::operator[](Figures figure) {
+    switch (figure) {
+        case WHITE_PAWN:   return white_pawns;
+        case WHITE_KNIGHT: return white_knights;
+        case WHITE_BISHOP: return white_bishops;
+        case WHITE_ROOK:   return white_rooks;
+        case WHITE_QUEEN:  return white_queens;
+        case WHITE_KING:   return white_kings;
+        case BLACK_PAWN:   return black_pawns;
+        case BLACK_KNIGHT: return black_knights;
+        case BLACK_BISHOP: return black_bishops;
+        case BLACK_ROOK:   return black_rooks;
+        case BLACK_QUEEN:  return black_queens;
+        case BLACK_KING:   return black_kings;
+        default:           return white_pawns;
+    }
+}
+
+Board Position::operator[](Figures figure) const {
+    switch (figure) {
+        case WHITE_PAWN:   return white_pawns;
+        case WHITE_KNIGHT: return white_knights;
+        case WHITE_BISHOP: return white_bishops;
+        case WHITE_ROOK:   return white_rooks;
+        case WHITE_QUEEN:  return white_queens;
+        case WHITE_KING:   return white_kings;
+        case BLACK_PAWN:   return black_pawns;
+        case BLACK_KNIGHT: return black_knights;
+        case BLACK_BISHOP: return black_bishops;
+        case BLACK_ROOK:   return black_rooks;
+        case BLACK_QUEEN:  return black_queens;
+        case BLACK_KING:   return black_kings;
+        default:           return white_pawns;
+    }
+}
