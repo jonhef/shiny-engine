@@ -3,6 +3,7 @@
 #include "../utils/figures.h"
 #include "../utils/board.h"
 #include "../utils/position.h"
+#include "../utils/chess_logic.h"
 
 double Evaluation::evaluate(Position pos) {
     double result = 0;
@@ -109,7 +110,67 @@ double Evaluation::evaluate(Position pos) {
         result += PENALTY_NOT_CASTLED;
     }
 
-    
+    // Reward for rook at an open tile for white
+    int openTilesWhite = 0b00000000, 
+        openTilesBlack = 0b00000000, 
+        fullOpenTiles = 0b00000000;
+    for (int i = 0; i < 8; ++i) {
+        bool isPawnAtTileWhite = false, isPawnAtTileBlack = false;
+        for (int j = 1; j < 8; ++j) {
+            if (pos[WHITE_PAWN][j][i]) {
+                isPawnAtTileWhite = true;
+            }
+            if (pos[BLACK_PAWN][j][i]) {
+                isPawnAtTileBlack = true;
+            }
+        }
+
+        openTilesWhite |= (int(isPawnAtTileBlack & !isPawnAtTileWhite) << i);
+        openTilesBlack |= (int(!isPawnAtTileBlack & isPawnAtTileWhite) << i);
+        fullOpenTiles |= (int(!isPawnAtTileWhite && !isPawnAtTileBlack) << i);
+    }
+
+    int whiteRooks = 0b00000000, blackRooks = 0b00000000;
+    for (int i = 0; i < 8; ++i) {
+        bool isRookAtTileWhite = false, isRookAtTileBlack = false;
+        for (int j = 0; j < 8; ++j) {
+            if (pos[WHITE_ROOK][j][i]) {
+                isRookAtTileWhite = true;
+            }
+            if (pos[BLACK_ROOK][j][i]) {
+                isRookAtTileBlack = true;
+            }
+        }
+        
+        whiteRooks |= (int(isRookAtTileWhite) << i);
+        blackRooks |= (int(isRookAtTileBlack) << i);
+    }
+
+    int whiteRooksAtOpenTiles     = whiteRooks & openTilesWhite,
+        whiteRooksAtFullOpenTiles = whiteRooks & fullOpenTiles,
+        blackRooksAtOpenTiles     = blackRooks & openTilesBlack,
+        blackRooksAtFullOpenTiles = blackRooks & fullOpenTiles;
+
+    auto countBits = [](const int number) {
+        int count = 0, temp = number;
+        while (temp > 0) {
+            if (temp & 0b1 == 0b1)
+                ++count;
+            temp >>= 1;
+        }
+        return count;
+    };
+
+    result += REWARD_ROOK_OPEN_TILE * countBits(whiteRooksAtOpenTiles);
+    result -= REWARD_ROOK_OPEN_TILE * countBits(blackRooksAtOpenTiles);
+
+    result += REWARD_ROOK_FULLOPEN_TILE * countBits(whiteRooksAtFullOpenTiles);
+    result += REWARD_ROOK_FULLOPEN_TILE * countBits(blackRooksAtFullOpenTiles);
+
+    // Check for mate
+    if (isCheckmate(pos, pos.isWhiteMove())) {
+        result += 1000 * (pos.isWhiteMove() ? 1 : -1);
+    }
 
     return result;
 }
