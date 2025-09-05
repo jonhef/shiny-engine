@@ -243,3 +243,19 @@ void Position::setEnPassantSquare(std::pair<int, int> square) {
 bool Position::isTerminal() const {
     return isCheckmate(*this);
 }
+
+Figures Position::getPieceAt(int x, int y) const {
+    if (white_pawns[x][y]) return WHITE_PAWN;
+    if (black_pawns[x][y]) return BLACK_PAWN;
+    if (white_bishops[x][y]) return WHITE_BISHOP;
+    if (black_bishops[x][y]) return BLACK_BISHOP;
+    if (white_knights[x][y]) return WHITE_KNIGHT;
+    if (black_knights[x][y]) return BLACK_KNIGHT;
+    if (white_kings[x][y]) return WHITE_KING;
+    if (black_kings[x][y]) return BLACK_KING;
+    if (white_rooks[x][y]) return WHITE_ROOK;
+    if (black_rooks[x][y]) return BLACK_ROOK;
+    if (white_queens[x][y]) return WHITE_QUEEN;
+    if (black_queens[x][y]) return BLACK_QUEEN;
+    return EMPTY;
+}

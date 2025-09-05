@@ -73,6 +73,8 @@ public:
     std::pair<int, int> getEnPassantSquare() const;
     void setEnPassantSquare(std::pair<int, int> square);
 
+    Figures getPieceAt(int x, int y) const;
+
     bool isTerminal() const;
 };
 

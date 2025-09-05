@@ -52,9 +52,9 @@ Move find_best_move(const Position& pos, int maxDepth) {
         auto moves = getLegalMoves(pos);
 
         // Можно отсортировать ходы для alpha-beta
-        // sort(moves.begin(), moves.end(), [&](const Move& a, const Move& b) {
-        //     return scoreMove(a, pos) > scoreMove(b, pos);
-        // });
+        std::sort(moves.begin(), moves.end(), [&](const Move& a, const Move& b) {
+            return scoreMove(pos.getPieceAt(a.toX, a.toY), pos.getPieceAt(a.fromX, a.fromY)) > scoreMove(pos.getPieceAt(b.toX, b.toY), pos.getPieceAt(b.fromX, b.fromY));
+        });
 
         for (auto& mv : moves) {
             Position after = applyMove(pos, mv);
