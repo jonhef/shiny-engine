@@ -7,6 +7,10 @@
 #include "../evaluation/evaluation.h"
 #include "../utils/chess_logic.h"
 
+inline double scoreMove(Figures victim, Figures attacker) {
+    return victim * 10 - attacker;
+}
+
 double alpha_beta(const Position& pos, int depth, double alpha, double beta, bool maximizing_player) {
     if (depth <= 0 || pos.isTerminal()) return Evaluation::evaluate(pos);
 
@@ -20,7 +24,7 @@ double alpha_beta(const Position& pos, int depth, double alpha, double beta, boo
             double eval = alpha_beta(new_pos, depth - 1, alpha, beta, false);
             max_eval = std::max(max_eval, eval);
             alpha = std::max(alpha, eval);
-            if (alpha >= beta) break;
+            if (beta <= alpha) break;
         }
         return max_eval;
     } else {
@@ -36,24 +40,36 @@ double alpha_beta(const Position& pos, int depth, double alpha, double beta, boo
     }
 }
 
-Move find_best_move(const Position& pos, int depth) {
-    Move best_move;
-    double best_value = std::numeric_limits<double>::min();
+Move find_best_move(const Position& pos, int maxDepth) {
+    Move bestMove;
+    double bestEval = std::numeric_limits<double>::min();
 
-    auto moves = getLegalMoves(pos);
-    if (moves.empty()) return best_move;
+    for (int depth = 1; depth <= maxDepth; ++depth) {
+        double alpha = std::numeric_limits<double>::min(), beta = std::numeric_limits<double>::max();
+        double currentEval = std::numeric_limits<double>::min();
+        Move currentBest;
 
-    for (const Move& mv : moves) {
-        Position new_pos = applyMove(pos, mv);
-        double val = alpha_beta(new_pos, depth - 1,
-                             std::numeric_limits<double>::min(),
-                             std::numeric_limits<double>::max(),
-                             false);
-        if (val > best_value) {
-            best_value = val;
-            best_move = mv;
+        auto moves = getLegalMoves(pos);
+
+        // Можно отсортировать ходы для alpha-beta
+        // sort(moves.begin(), moves.end(), [&](const Move& a, const Move& b) {
+        //     return scoreMove(a, pos) > scoreMove(b, pos);
+        // });
+
+        for (auto& mv : moves) {
+            Position after = applyMove(pos, mv);
+            double eval = alpha_beta(after, depth - 1, alpha, beta, false);
+            if (eval > currentEval) {
+                currentEval = eval;
+                currentBest = mv;
+            }
+            alpha = std::max(alpha, eval);
         }
+
+        // После каждой итерации обновляем "лучший ход"
+        bestMove = currentBest;
+        bestEval = currentEval;
     }
 
-    return best_move;
+    return bestMove;
 }

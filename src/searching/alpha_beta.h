@@ -9,4 +9,4 @@ double alpha_beta(
     bool maximizing_player = true
 );
 
-Move find_best_move(const Position& pos, int depth);
+Move find_best_move(const Position& pos, int maxDepth);
