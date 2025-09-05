@@ -1,7 +1,10 @@
+// alpha_beta_tt_advanced.cpp
 #include <iostream>
 #include <vector>
 #include <limits>
 #include <algorithm>
+#include <unordered_map>
+#include <cfloat>
 
 #include "alpha_beta.h"
 #include "../evaluation/evaluation.h"
@@ -9,210 +12,197 @@
 
 using TranspositionTable = std::unordered_map<uint64_t, TTEntry>;
 
-inline double scoreMove(Figures victim, Figures attacker) {
-    return victim * 10 - attacker;
+static constexpr double INF = std::numeric_limits<double>::infinity();
+static constexpr double NEG_INF = -INF;
+
+// ---- MVV/LVA ----
+inline int mvv_lva_score(const Position& pos, const Move& mv) {
+    Figures victim = pos.getPieceAt(mv.toX, mv.toY);
+    Figures attacker = pos.getPieceAt(mv.fromX, mv.fromY);
+    if (victim == (Figures)-1 || attacker == (Figures)-1) return 0;
+    int v = static_cast<int>(victim);
+    int a = static_cast<int>(attacker);
+    return (v << 8) - a;
 }
 
-double alpha_beta(const Position& pos, int depth, double alpha, double beta, bool maximizing_player) {
-    if (depth <= 0 || pos.isTerminal()) return Evaluation::evaluate(pos);
+// ---- Quiescence ----
+double quiescence(const Position& pos, double alpha, double beta, int maxDepth=1) {
+    if (maxDepth <= 0) return Evaluation::evaluate(pos);
+
+    double stand_pat = Evaluation::evaluate(pos);
+    if (stand_pat >= beta) return stand_pat;
+    if (alpha < stand_pat) alpha = stand_pat;
+
+    auto moves = generatePseudoMoves(pos);
+    std::vector<Move> captures;
+    for (auto &mv : moves) {
+        if (mv.flag == EN_PASSANT || mv.promoteTo != (Figures)-1 || pos.getPieceAt(mv.toX, mv.toY) != (Figures)-1)
+            captures.push_back(mv);
+    }
+
+    if (captures.empty()) return stand_pat;
+
+    std::sort(captures.begin(), captures.end(), [&](const Move &a, const Move &b){
+        return mvv_lva_score(pos, a) > mvv_lva_score(pos, b);
+    });
+
+    for (const Move &mv : captures) {
+        Position after = applyMove(pos, mv);
+        double score = -quiescence(after, -beta, -alpha, maxDepth - 1);
+        if (score >= beta) return score;
+        if (score > alpha) alpha = score;
+    }
+    return alpha;
+}
+
+// ---- PVS с TT + TT-based history ----
+double pvs(Position& pos, int depth, double alpha, double beta, bool maximizing,
+           const Zobrist& zob, TranspositionTable& tt) 
+{
+    if (depth <= 0) return quiescence(pos, alpha, beta);
+    if (pos.isTerminal()) return Evaluation::evaluate(pos);
+
+    uint64_t hash = zob.computeHash(pos);
+    auto it = tt.find(hash);
+
+    if (it != tt.end()) {
+        const TTEntry& e = it->second;
+        if (e.depth >= depth) {
+            if (e.flag == TTEntry::EXACT) return e.value;
+            if (e.flag == TTEntry::LOWERBOUND && e.value > alpha) alpha = e.value;
+            if (e.flag == TTEntry::UPPERBOUND && e.value < beta) beta = e.value;
+            if (alpha >= beta) return e.value;
+        }
+    }
 
     auto moves = getLegalMoves(pos);
     if (moves.empty()) return Evaluation::evaluate(pos);
 
-    if (maximizing_player) {
-        double max_eval = std::numeric_limits<double>::min();
-        for (const Move& mv : moves) {
-            Position new_pos = applyMove(pos, mv);
-            double eval = alpha_beta(new_pos, depth - 1, alpha, beta, false);
-            max_eval = std::max(max_eval, eval);
-            alpha = std::max(alpha, eval);
-            if (beta <= alpha) break;
-        }
-        return max_eval;
-    } else {
-        double min_eval = std::numeric_limits<double>::max();
-        for (const Move& mv : moves) {
-            Position new_pos = applyMove(pos, mv);
-            double eval = alpha_beta(new_pos, depth - 1, alpha, beta, true);
-            min_eval = std::min(min_eval, eval);
-            beta = std::min(beta, eval);
-            if (beta <= alpha) break;
-        }
-        return min_eval;
-    }
-}
-
-double pvs(Position& pos, int depth, double alpha, double beta, bool maximizing, 
-           const Zobrist& zob, const TranspositionTable& tt) 
-{
-    uint64_t hash = zob.computeHash(pos);
-
-    // --- Проверяем TT
-    auto it = tt.find(hash);
-    if (it != tt.end() && it->second.depth >= depth) {
-        const TTEntry& entry = it->second;
-        if (entry.flag == TTEntry::EXACT) return entry.value;
-        else if (entry.flag == TTEntry::LOWERBOUND && entry.value > alpha) alpha = entry.value;
-        else if (entry.flag == TTEntry::UPPERBOUND && entry.value < beta)  beta = entry.value;
-        if (alpha >= beta) return entry.value;
+    // TT move first
+    if (it != tt.end()) {
+        auto f = std::find(moves.begin(), moves.end(), it->second.bestMove);
+        if (f != moves.end()) std::iter_swap(moves.begin(), f);
     }
 
-    // --- База
-    if (depth == 0 || pos.isTerminal()) {
-        return Evaluation::evaluate(pos);
+    // Сортировка с TT-based history: captures high, затем успешные TT ходы
+    std::vector<std::pair<int, Move>> scored;
+    scored.reserve(moves.size());
+    for (auto &mv : moves) {
+        int score = 0;
+        Figures victim = pos.getPieceAt(mv.toX, mv.toY);
+        if (victim != (Figures)-1 || mv.flag == EN_PASSANT || mv.promoteTo != (Figures)-1)
+            score = 100000 + mvv_lva_score(pos, mv);
+        else if (it != tt.end() && mv == it->second.bestMove)
+            score = 50000 + it->second.historyCount; // TT history
+        scored.emplace_back(score, mv);
     }
 
-    auto moves = getLegalMoves(pos);
-    if (moves.empty()) {
-        return Evaluation::evaluate(pos); // мат/пат
-    }
+    std::sort(scored.begin(), scored.end(), [](const auto &a, const auto &b){ return a.first > b.first; });
 
     bool firstMove = true;
-    double bestEval = maximizing ? -1e9 : 1e9;
+    double bestValue = NEG_INF;
     Move bestMove;
+    double localAlpha = alpha;
 
-    // --- Move ordering: TT move в начало
-    if (it != tt.end()) {
-        auto ttMove = it->second.bestMove;
-        auto f = std::find(moves.begin(), moves.end(), ttMove);
-        if (f != moves.end()) {
-            std::iter_swap(moves.begin(), f);
-        }
-    }
-
-    for (auto& mv : moves) {
+    for (const auto &pair : scored) {
+        const Move &mv = pair.second;
         Position after = applyMove(pos, mv);
-        double eval;
 
+        double score;
         if (firstMove) {
-            eval = pvs(after, depth - 1, alpha, beta, !maximizing, zob, tt);
+            score = -pvs(after, depth - 1, -beta, -localAlpha, !maximizing, zob, tt);
             firstMove = false;
         } else {
-            if (maximizing) {
-                eval = pvs(after, depth - 1, alpha, alpha + 1, false, zob, tt);
-                if (eval > alpha && eval < beta) {
-                    eval = pvs(after, depth - 1, alpha, beta, false, zob, tt);
-                }
-            } else {
-                eval = pvs(after, depth - 1, beta - 1, beta, true, zob, tt);
-                if (eval < beta && eval > alpha) {
-                    eval = pvs(after, depth - 1, alpha, beta, true, zob, tt);
-                }
-            }
+            double scoreProbe = -pvs(after, depth - 1, -localAlpha - 1e-6, -localAlpha, !maximizing, zob, tt);
+            if (scoreProbe > localAlpha && scoreProbe < beta)
+                score = -pvs(after, depth - 1, -beta, -localAlpha, !maximizing, zob, tt);
+            else score = scoreProbe;
         }
 
-        if (maximizing) {
-            if (eval > bestEval) {
-                bestEval = eval;
-                bestMove = mv;
-            }
-            alpha = std::max(alpha, eval);
-        } else {
-            if (eval < bestEval) {
-                bestEval = eval;
-                bestMove = mv;
-            }
-            beta = std::min(beta, eval);
+        if (score > bestValue) {
+            bestValue = score;
+            bestMove = mv;
         }
+        if (score > localAlpha) localAlpha = score;
 
-        if (alpha >= beta) break;
+        if (localAlpha >= beta) {
+            TTEntry entry;
+            entry.value = bestValue;
+            entry.depth = depth;
+            entry.bestMove = bestMove;
+            entry.flag = TTEntry::LOWERBOUND;
+            entry.historyCount = (it != tt.end() ? it->second.historyCount : 0) + depth * depth;
+            tt[hash] = entry;
+            return bestValue;
+        }
     }
 
-    // --- Запись в TT
     TTEntry entry;
-    entry.value = bestEval;
+    entry.value = bestValue;
     entry.depth = depth;
     entry.bestMove = bestMove;
+    entry.flag = TTEntry::EXACT;
+    entry.historyCount = (it != tt.end() ? it->second.historyCount : 0);
+    tt[hash] = entry;
 
-    if (bestEval <= alpha) entry.flag = TTEntry::UPPERBOUND;
-    else if (bestEval >= beta) entry.flag = TTEntry::LOWERBOUND;
-    else entry.flag = TTEntry::EXACT;
-
-    // ⚠️ TT передаётся const&, поэтому запись нужно делать в вызывающей функции
-    // Тут просто возвращаем bestEval, а запись в TT делается выше по стеку
-
-    return bestEval;
+    return bestValue;
 }
 
-Move find_best_move(const Position& pos, int maxDepth) {
+// ---- Найти лучший ход с итеративным углублением ----
+Move find_best_move_pvs(const Position& rootPos, int maxDepth, const Zobrist& zob, TranspositionTable& tt) {
     Move bestMove;
-    double bestEval = std::numeric_limits<double>::min();
+    double bestEval = NEG_INF;
+    Position pos = rootPos;
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
-        double alpha = std::numeric_limits<double>::min(), beta = std::numeric_limits<double>::max();
-        double currentEval = std::numeric_limits<double>::min();
-        Move currentBest;
+        double alpha = NEG_INF;
+        double beta  =  INF;
 
         auto moves = getLegalMoves(pos);
+        if (moves.empty()) break;
 
-        // Можно отсортировать ходы для alpha-beta
-        std::sort(moves.begin(), moves.end(), [&](const Move& a, const Move& b) {
-            return scoreMove(pos.getPieceAt(a.toX, a.toY), pos.getPieceAt(a.fromX, a.fromY)) > scoreMove(pos.getPieceAt(b.toX, b.toY), pos.getPieceAt(b.fromX, b.fromY));
-        });
-
-        for (auto& mv : moves) {
-            Position after = applyMove(pos, mv);
-            double eval = alpha_beta(after, depth - 1, alpha, beta, false);
-            if (eval > currentEval) {
-                currentEval = eval;
-                currentBest = mv;
-            }
-            alpha = std::max(alpha, eval);
+        uint64_t rootHash = zob.computeHash(pos);
+        auto it = tt.find(rootHash);
+        if (it != tt.end()) {
+            auto f = std::find(moves.begin(), moves.end(), it->second.bestMove);
+            if (f != moves.end()) std::iter_swap(moves.begin(), f);
         }
 
-        // После каждой итерации обновляем "лучший ход"
-        bestMove = currentBest;
-        bestEval = currentEval;
-    }
-
-    return bestMove;
-}
-
-Move find_best_move_pvs(const Position& pos, int maxDepth, const Zobrist& zob, const TranspositionTable& tt) {
-    Move bestMove;
-    double bestEval = -std::numeric_limits<double>::infinity();
-
-    for (int depth = 1; depth <= maxDepth; ++depth) {
-        double alpha = -std::numeric_limits<double>::infinity();
-        double beta  =  std::numeric_limits<double>::infinity();
-        Move currentBest;
-        double currentEval = -std::numeric_limits<double>::infinity();
-
-        auto moves = getLegalMoves(pos);
-
-        // Сортировка ходов (например, побитовые захваты + history heuristic)
         std::sort(moves.begin(), moves.end(), [&](const Move& a, const Move& b) {
-            return scoreMove(pos.getPieceAt(a.toX, a.toY), pos.getPieceAt(a.fromX, a.fromY)) >
-                   scoreMove(pos.getPieceAt(b.toX, b.toY), pos.getPieceAt(b.fromX, b.fromY));
+            int sa = mvv_lva_score(pos, a);
+            int sb = mvv_lva_score(pos, b);
+            if (sa != sb) return sa > sb;
+            if (it != tt.end()) {
+                if (a == it->second.bestMove) return true;
+                if (b == it->second.bestMove) return false;
+            }
+            return false;
         });
 
-        bool firstMove = true;
-        for (auto& mv : moves) {
-            Position after = applyMove(pos, mv);
+        Move bestThisDepth;
+        double bestThisEval = NEG_INF;
+        bool first = true;
 
-            double eval;
-            if (firstMove) {
-                // Полный поиск для первого хода (PV node)
-                eval = pvs(after, depth - 1, alpha, beta, false, zob, tt);
-                firstMove = false;
+        for (auto &mv : moves) {
+            Position after = applyMove(pos, mv);
+            double score;
+            if (first) {
+                score = -pvs(after, depth - 1, -beta, -alpha, false, zob, tt);
+                first = false;
             } else {
-                // Null-window search для остальных ходов
-                eval = pvs(after, depth - 1, alpha, alpha + 1e-6, false, zob, tt);
-                if (eval > alpha && eval < beta) {
-                    // Re-search, если превысило alpha
-                    eval = pvs(after, depth - 1, alpha, beta, false, zob, tt);
-                }
+                score = -pvs(after, depth - 1, -alpha - 1e-6, -alpha, false, zob, tt);
+                if (score > alpha && score < beta)
+                    score = -pvs(after, depth - 1, -beta, -alpha, false, zob, tt);
             }
 
-            if (eval > currentEval) {
-                currentEval = eval;
-                currentBest = mv;
-            }
-            alpha = std::max(alpha, eval);
+            if (score > bestThisEval) { bestThisEval = score; bestThisDepth = mv; }
+            alpha = std::max(alpha, score);
         }
 
-        bestMove = currentBest;
-        bestEval = currentEval;
+        bestEval = bestThisEval;
+        bestMove = bestThisDepth;
+
+        if (bestEval > 1e8 || bestEval < -1e8) break;
     }
 
     return bestMove;

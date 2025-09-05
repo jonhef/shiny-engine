@@ -231,6 +231,7 @@ bool Position::isWhiteMove() const {
 
 // NEW
 bool& Position::hasEnPassant() { return this->enPassant; }
+bool Position::hasEnPassant() const { return this->enPassant; }
 int& Position::getEnPassantX() { return this->enPassantX; }
 int& Position::getEnPassantY() { return this->enPassantY; }
 std::pair<int, int> Position::getEnPassantSquare() const { return {this->enPassantX, this->enPassantY}; }

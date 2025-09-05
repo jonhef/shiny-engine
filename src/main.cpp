@@ -10,12 +10,16 @@ using TranspositionTable = std::unordered_map<uint64_t, TTEntry>;
 
 int main() {
     Position pos;  // стандартная начальная позиция
-    pos.isWhiteMove() = true;
+    pos.isWhiteMove() = false;
 
-    decodeFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", pos);
+    std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    std::cout << "Enter fen: ";
+    std::getline(std::cin, fen);
+
+    decodeFEN(fen, pos);
 
     int depth = 4;
-    std::cout << "Enter depth: " << std::endl;
+    std::cout << "Enter depth: ";
     std::cin >> depth;
 
     int moveCount = 0;
@@ -26,9 +30,12 @@ int main() {
     while(true) {
         auto legalMoves = getLegalMoves(pos);
 
+        std::cout << "Evaluation: " << pvs(pos, depth, std::numeric_limits<double>::max(),
+                                           std::numeric_limits<double>::min(), !pos.isWhiteMove(), zob, tt) / 100 << std::endl;
+        
         if(legalMoves.empty()) {
             if(isCheck(pos)) {
-                std::cout << (pos.isWhiteMove() ? "Black" : "White") << " wins by checkmate!\n";
+                std::cout << (!pos.isWhiteMove() ? "Black" : "White") << " wins by checkmate!\n";
             } else {
                 std::cout << "Draw by stalemate!\n";
             }
@@ -42,8 +49,8 @@ int main() {
         std::cout << moveCount + 1 << ". " << (pos.isWhiteMove() ? "White" : "Black")
                   << ": " << bestMove << "\n";
 
-        std::cout << "Evaluation: " << pvs(pos, depth, std::numeric_limits<double>::max(),
-                                           std::numeric_limits<double>::min(), pos.isWhiteMove(), zob, tt) << std::endl;
+        
+        std::cout << encodeFEN(pos) << std::endl; 
 
         // Применение хода
         pos = applyMove(pos, bestMove);

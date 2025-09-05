@@ -118,7 +118,12 @@ double Evaluation::evaluate(Position pos) {
 
     // --- Проверка мата ---
     if (isCheckmate(pos)) {
-        result += 1000000 * (pos.isWhiteMove() ? 1 : -1);
+        if (!pos.isWhiteMove()) {
+            result -= 1e6;
+        }
+        else {
+            result += 1e6;
+        }
     }
 
     return result;

@@ -82,62 +82,103 @@ void setPieceAt(Position& pos, int row, int col, int piece) {
     }
 }
 
+
 void decodeFEN(const std::string &fen, Position& board) {
     std::istringstream iss(fen);
-    std::string rowStr;
-    int fenRow = 0;
+    std::string boardPart, activeColor, castling, epSquare, halfmoveStr, fullmoveStr;
 
-    // Считаем строки до пробела (только доска)
-    while (std::getline(iss, rowStr, ' ') && fenRow < 1) {
-        // берем первую часть FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR
-        std::string boardPart = rowStr;
-        std::vector<std::string> rows;
-        std::istringstream rowStream(boardPart);
-        std::string s;
-        while (std::getline(rowStream, s, '/')) {
-            rows.push_back(s);
-        }
+    iss >> boardPart >> activeColor >> castling >> epSquare >> halfmoveStr >> fullmoveStr;
 
-        for (int r = 0; r < 8; ++r) {
-            const std::string &line = rows[r];
-            int row = 7 - r;  // FEN верхняя строка = row 7
-            int col = 0;
-            for (char c : line) {
-                if (std::isdigit(c)) {
-                    int emptyCount = c - '0';
-                    for (int i = 0; i < emptyCount; ++i) {
-                        setPieceAt(board, col, row, EMPTY);
-                        col++;
-                    }
-                } else {
-                    int piece = charToPiece(c);
-                    setPieceAt(board, col, row, piece);
+    std::vector<std::string> rows;
+    std::istringstream rowStream(boardPart);
+    std::string s;
+    while (std::getline(rowStream, s, '/')) rows.push_back(s);
+
+    for (int r = 0; r < 8; ++r) {
+        const std::string &line = rows[r];
+        int row = 7 - r;  // FEN верхняя строка = row 7
+        int col = 0;
+        for (char c : line) {
+            if (std::isdigit(c)) {
+                int emptyCount = c - '0';
+                for (int i = 0; i < emptyCount; ++i) {
+                    setPieceAt(board, col, row, EMPTY);
                     col++;
                 }
+            } else {
+                int piece = charToPiece(c);
+                setPieceAt(board, col, row, piece);
+                col++;
             }
         }
-        fenRow++;
     }
+
+    // Чей ход
+    board.isWhiteMove() = (activeColor == "w");
+
+    // Рокировка
+    board.getShortWhiteCastling() = castling.find('K') != std::string::npos;
+    board.getLongWhiteCastling()  = castling.find('Q') != std::string::npos;
+    board.getShortBlackCastling() = castling.find('k') != std::string::npos;
+    board.getLongBlackCastling()  = castling.find('q') != std::string::npos;
+
+    // Эн-пассант
+    if (epSquare == "-") {
+        board.hasEnPassant() = false;
+        board.setEnPassantSquare({-1,-1});
+    } else {
+        int file = epSquare[0] - 'a';
+        int rank = epSquare[1] - '1';
+        board.hasEnPassant() = true;
+        board.setEnPassantSquare({file, rank});
+    }
+
+    // Можно парсить halfmove и fullmove, если нужно
+    // int halfmove = std::stoi(halfmoveStr);
+    // int fullmove = std::stoi(fullmoveStr);
 }
 
 std::string encodeFEN(const Position& pos) {
     std::string fen;
-    for (int r = 7; r >= 0; --r) {  // сверху вниз, чтобы FEN был правильным
+    for (int r = 7; r >= 0; --r) {  // сверху вниз
         int emptyCount = 0;
         for (int c = 0; c < 8; ++c) {
             int piece = getPieceAt(pos, c, r);
             if (piece == EMPTY) {
                 emptyCount++;
             } else {
-                if (emptyCount > 0) {
-                    fen += std::to_string(emptyCount);
-                    emptyCount = 0;
-                }
+                if (emptyCount > 0) { fen += std::to_string(emptyCount); emptyCount = 0; }
                 fen += pieceToChar(piece);
             }
         }
         if (emptyCount > 0) fen += std::to_string(emptyCount);
         if (r > 0) fen += '/';
     }
+
+    // Чей ход
+    fen += ' ';
+    fen += pos.isWhiteMove() ? 'w' : 'b';
+
+    // Рокировка
+    fen += ' ';
+    std::string castling;
+    if (pos.getShortWhiteCastling()) castling += 'K';
+    if (pos.getLongWhiteCastling())  castling += 'Q';
+    if (pos.getShortBlackCastling()) castling += 'k';
+    if (pos.getLongBlackCastling())  castling += 'q';
+    fen += castling.empty() ? "-" : castling;
+
+    // Эн-пассант
+    fen += ' ';
+    auto ep = pos.getEnPassantSquare();
+    if (!(pos.hasEnPassant()) || ep.first == -1) fen += '-';
+    else {
+        fen += ('a' + ep.first);
+        fen += ('1' + ep.second);
+    }
+
+    // Для простоты можно поставить нули для halfmove/fullmove
+    fen += " 0 1";
+
     return fen;
 }

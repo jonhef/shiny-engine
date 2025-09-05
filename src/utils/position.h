@@ -68,6 +68,7 @@ public:
 
     // NEW: expose en-passant controls
     bool& hasEnPassant();       // reference to 'enPassant' flag
+    bool hasEnPassant() const;
     int& getEnPassantX();       // reference to ep target file (0..7) or -1
     int& getEnPassantY();       // reference to ep target rank (0..7) or -1
     std::pair<int, int> getEnPassantSquare() const;

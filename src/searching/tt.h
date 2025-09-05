@@ -1,15 +1,18 @@
 #ifndef TT_H
 #define TT_H
+
 #include <random>
 #include <cstdint>
-
 #include "../utils/chess_logic.h"
 
 struct TTEntry {
-    double value;
-    int depth;
+    double value;      // оценка позиции
+    int depth;         // глубина поиска, на которой записано значение
     enum Flag { EXACT, LOWERBOUND, UPPERBOUND } flag;
-    Move bestMove;
+    Move bestMove;     // лучший ход для позиции
+    int historyCount;  // счетчик успешных ходов для TT-based history heuristic
+
+    TTEntry() : value(0), depth(0), flag(EXACT), bestMove(), historyCount(0) {}
 };
 
 class Zobrist {

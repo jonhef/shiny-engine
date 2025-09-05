@@ -1,3 +1,5 @@
+#ifndef ALPHA_BETA_H
+#define ALPHA_BETA_H
 #include "../utils/position.h"
 #include "../utils/chess_logic.h"
 #include "tt.h"
@@ -14,9 +16,9 @@ double alpha_beta(
     bool maximizing_player = true
 );
 
-double pvs(Position& pos, int depth, double alpha, double beta, bool maximizing, 
-           const Zobrist& zob, const TranspositionTable& tt);
+double pvs(Position& pos, int depth, double alpha, double beta, bool maximizing,
+           const Zobrist& zob, TranspositionTable& tt);
 
-Move find_best_move(const Position& pos, int maxDepth);
+Move find_best_move_pvs(const Position& pos, int maxDepth, const Zobrist& zob, TranspositionTable& tt);
 
-Move find_best_move_pvs(const Position& pos, int maxDepth, const Zobrist& zob, const TranspositionTable& tt);
+#endif // ALPHA_BETA_H
