@@ -143,18 +143,18 @@ Position applyMove(const Position& pos, const Move& mv) {
     Position newPos(pos);
 
     bool whiteToMove = pos.isWhiteMove();                // сторона, которая делает ход сейчас (в pos)
-    newPos.isWhiteMove() = !whiteToMove;                 // переключаем ход в новой позиции
 
     // Выбрать списки фигур для движущейся стороны и для соперника
     const auto& movers = whiteToMove ? WHITE_PIECES : BLACK_PIECES;
     const auto& opponents = whiteToMove ? BLACK_PIECES : WHITE_PIECES;
 
-    // Найти движущуюся фигуру
     Figures movingPiece = (Figures)-1;
     for (auto f : movers) {
-        if (newPos[f][mv.fromX][mv.fromY]) { movingPiece = f; break; }
+        if (pos[f][mv.fromX][mv.fromY]) { movingPiece = f; break; }
     }
-    if (movingPiece == (Figures)-1) return newPos; // ничего не нашлось — возвращаем копию без изменений
+    if (movingPiece == (Figures)-1) return newPos;
+
+    newPos.isWhiteMove() = !whiteToMove;
 
     // Удаляем её с исходной клетки
     newPos[movingPiece][mv.fromX][mv.fromY] = 0;
