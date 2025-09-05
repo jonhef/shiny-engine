@@ -33,6 +33,8 @@ struct Move {
         : fromX(fx), fromY(fy), toX(tx), toY(ty), promoteTo(promo), flag(fl) {}
 
     Move(const Move& move) : fromX(move.fromX), fromY(move.fromY), toX(move.toX), toY(move.toY), promoteTo(move.promoteTo), flag(move.flag) {}
+
+    bool operator==(const Move& other) const;
 };
 
 std::ostream& operator<<(std::ostream& os, const Move& move);

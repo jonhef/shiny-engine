@@ -13,6 +13,8 @@ add_executable(shiny-engine
 
     src/searching/alpha_beta.cpp
     src/searching/alpha_beta.h
+    src/searching/tt.cpp
+    src/searching/tt.h
 
     src/utils/board.cpp 
     src/utils/board.h 

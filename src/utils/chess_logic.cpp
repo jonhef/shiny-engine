@@ -12,6 +12,12 @@ inline bool inBounds(int x, int y) {
     return x >= 0 && x < 8 && y >= 0 && y < 8;
 }
 
+bool Move::operator==(const Move& other) const {
+    return fromX == other.fromX && fromY == other.fromY &&
+           toX == other.toX && toY == other.toY &&
+            promoteTo == other.promoteTo;
+}
+
 // Явные списки фигур по цветам (используем значения из figures.h)
 static const std::array<Figures,6> WHITE_PIECES = {
     WHITE_PAWN, WHITE_KNIGHT, WHITE_BISHOP, WHITE_ROOK, WHITE_QUEEN, WHITE_KING

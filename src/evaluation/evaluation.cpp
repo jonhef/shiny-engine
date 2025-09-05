@@ -118,10 +118,8 @@ double Evaluation::evaluate(Position pos) {
 
     // --- Проверка мата ---
     if (isCheckmate(pos)) {
-        result += 10000 * (pos.isWhiteMove() ? 1 : -1);
+        result += 1000000 * (pos.isWhiteMove() ? 1 : -1);
     }
 
-    // --- Конечная нормализация ---
-    // всё в сантипешках (100 = 1 пешка)
     return result;
 }
