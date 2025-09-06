@@ -44,6 +44,9 @@ bool isCheck(const Position& pos);
 bool isCheckmate(const Position& pos);
 std::vector<Move> getLegalMoves(const Position& pos);
 
+std::pair<int,int> findKing(const Position& pos, bool white);
+bool isSquareAttacked(const Position& pos, int x, int y, bool byWhite);
+
 // (Optionally useful for your engine/UI)
 std::vector<Move> generatePseudoMoves(const Position& pos);
 Position applyMove(const Position& pos, const Move& mv);

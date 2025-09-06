@@ -6,18 +6,21 @@
 
 #include <random>
 
+// Forward declaration; only referenced by const& here
+class Zobrist;
+
 using TranspositionTable = std::unordered_map<uint64_t, TTEntry>;
 
-double alpha_beta(
-    const Position& pos, 
-    int depth, 
-    double alpha = std::numeric_limits<double>::min(), 
-    double beta = std::numeric_limits<double>::max(), 
-    bool maximizing_player = true
-);
+struct SearchContext;
 
-double pvs(Position& pos, int depth, double alpha, double beta, bool maximizing,
-           const Zobrist& zob, TranspositionTable& tt);
+// Compute evaluation (centipawns) of a position with a fixed search depth.
+// This runs the PVS alpha-beta search but discards the best move, returning the
+// numeric score instead. Positive = advantage to White, negative = advantage to Black.
+double evaluate_with_depth(const Position& rootPos, int depth,
+                           const Zobrist& zob, TranspositionTable& tt);
+
+double search(Position& pos, int depth, double alpha, double beta, int ply,
+              SearchContext& sc);
 
 Move find_best_move_pvs(const Position& pos, int maxDepth, const Zobrist& zob, TranspositionTable& tt);
 

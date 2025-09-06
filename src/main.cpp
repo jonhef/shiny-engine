@@ -12,13 +12,13 @@ int main() {
     Position pos;  // стандартная начальная позиция
     pos.isWhiteMove() = false;
 
-    std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    std::string fen;
     std::cout << "Enter fen: ";
     std::getline(std::cin, fen);
 
     decodeFEN(fen, pos);
 
-    int depth = 4;
+    int depth = 20;
     std::cout << "Enter depth: ";
     std::cin >> depth;
 
@@ -30,8 +30,7 @@ int main() {
     while(true) {
         auto legalMoves = getLegalMoves(pos);
 
-        std::cout << "Evaluation: " << pvs(pos, depth, std::numeric_limits<double>::max(),
-                                           std::numeric_limits<double>::min(), !pos.isWhiteMove(), zob, tt) / 100 << std::endl;
+        std::cout << "Evaluation: " << evaluate_with_depth(pos, depth, zob, tt) / 100 << std::endl;
         
         if(legalMoves.empty()) {
             if(isCheck(pos)) {

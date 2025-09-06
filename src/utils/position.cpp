@@ -242,7 +242,7 @@ void Position::setEnPassantSquare(std::pair<int, int> square) {
 }
 
 bool Position::isTerminal() const {
-    return isCheckmate(*this);
+    return getLegalMoves(*this).empty();
 }
 
 Figures Position::getPieceAt(int x, int y) const {

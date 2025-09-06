@@ -1,10 +1,11 @@
-// alpha_beta_tt_advanced.cpp
-#include <iostream>
-#include <vector>
-#include <limits>
+// alpha_beta.cpp — Fast PVS with TT, LMR, Killers, History, Aspiration
 #include <algorithm>
-#include <unordered_map>
+#include <array>
 #include <cfloat>
+#include <cstdint>
+#include <limits>
+#include <unordered_map>
+#include <vector>
 
 #include "alpha_beta.h"
 #include "../evaluation/evaluation.h"
@@ -15,195 +16,344 @@ using TranspositionTable = std::unordered_map<uint64_t, TTEntry>;
 static constexpr double INF = std::numeric_limits<double>::infinity();
 static constexpr double NEG_INF = -INF;
 
-// ---- MVV/LVA ----
+// ----------------------------- Helpers ---------------------------------------
+inline bool is_capture_or_promo(const Position& pos, const Move& mv) {
+    return mv.flag == EN_PASSANT || mv.promoteTo != (Figures)-1 ||
+           pos.getPieceAt(mv.toX, mv.toY) != (Figures)-1;
+}
+
+inline int square_index(int x, int y) { return y * 8 + x; }
+
 inline int mvv_lva_score(const Position& pos, const Move& mv) {
     Figures victim = pos.getPieceAt(mv.toX, mv.toY);
     Figures attacker = pos.getPieceAt(mv.fromX, mv.fromY);
     if (victim == (Figures)-1 || attacker == (Figures)-1) return 0;
     int v = static_cast<int>(victim);
     int a = static_cast<int>(attacker);
-    return (v << 8) - a;
+    return (v << 8) - a; // bigger victim, smaller attacker — higher score
 }
 
-// ---- Quiescence ----
-double quiescence(const Position& pos, double alpha, double beta, int maxDepth=1) {
-    if (maxDepth <= 0) return Evaluation::evaluate(pos);
+// ---------------------------- Search context ---------------------------------
+struct SearchContext {
+    const Zobrist& zob;
+    TranspositionTable& tt;
+    // Two killer moves per ply
+    std::array<std::array<Move, 2>, 128> killers{}; // ply < 128
+    // History heuristic by side and from-to
+    std::array<std::array<int, 64*64>, 2> history{}; // [side][from*64+to]
+    int maxDepth = 0;
+    uint64_t nodes = 0;
+};
 
-    double stand_pat = Evaluation::evaluate(pos);
-    if (stand_pat >= beta) return stand_pat;
-    if (alpha < stand_pat) alpha = stand_pat;
+static inline int side_index(const Position& pos) { return pos.isWhiteMove() ? 0 : 1; }
 
-    auto moves = generatePseudoMoves(pos);
+// Update killers: keep unique and non-captures only
+static inline void push_killer(SearchContext& sc, int ply, const Move& mv) {
+    if (ply >= (int)sc.killers.size()) return;
+    if (sc.killers[ply][0] == mv) return;
+    sc.killers[ply][1] = sc.killers[ply][0];
+    sc.killers[ply][0] = mv;
+}
+
+static inline void add_history(SearchContext& sc, const Position& pos, const Move& mv, int depth) {
+    if (is_capture_or_promo(pos, mv)) return; // only quiets
+    int idx = square_index(mv.fromX, mv.fromY) * 64 + square_index(mv.toX, mv.toY);
+    int s = side_index(pos);
+    sc.history[s][idx] += depth * depth; // quadratic bump
+    if (sc.history[s][idx] > 1'000'000) sc.history[s][idx] /= 2; // avoid overflow
+}
+
+static inline int history_score(const SearchContext& sc, const Position& pos, const Move& mv) {
+    int idx = square_index(mv.fromX, mv.fromY) * 64 + square_index(mv.toX, mv.toY);
+    return sc.history[side_index(pos)][idx];
+}
+
+std::vector<Move> generateCaptures(const Position& pos) {
+    std::vector<Move> moves;
     std::vector<Move> captures;
-    for (auto &mv : moves) {
-        if (mv.flag == EN_PASSANT || mv.promoteTo != (Figures)-1 || pos.getPieceAt(mv.toX, mv.toY) != (Figures)-1)
+
+    // Сначала получаем все ходы (включая тихие)
+    moves = getLegalMoves(pos);
+
+    for (const auto& mv : moves) {
+        Figures moving = pos.getPieceAt(mv.fromX, mv.fromY);   // фигура, которая ходит
+        Figures target = pos.getPieceAt(mv.toX, mv.toY);     // фигура, стоящая в целевой клетке
+
+        // Взятие: если в target есть фигура соперника
+        bool isCapture = (target != EMPTY && ((target > 0 && moving < 0) || (target < 0 && moving > 0)));
+
+        // Превращение пешки: дошла до последней горизонтали
+        bool isPromotion = ((moving == WHITE_PAWN || moving == BLACK_PAWN) &&
+                           ((moving > 0 && mv.toX == 7) ||
+                            (moving < 0 && mv.toX == 0)));
+
+        if (isCapture || isPromotion) {
             captures.push_back(mv);
+        }
     }
 
-    if (captures.empty()) return stand_pat;
+    return captures;
+}
 
-    std::sort(captures.begin(), captures.end(), [&](const Move &a, const Move &b){
-        return mvv_lva_score(pos, a) > mvv_lva_score(pos, b);
-    });
+// ----------------------------- Quiescence ------------------------------------
+double quiescence(Position& pos, double alpha, double beta, int ply, SearchContext& ctx) {
+    ctx.nodes++;  // учитываем узел
 
-    for (const Move &mv : captures) {
-        Position after = applyMove(pos, mv);
-        double score = -quiescence(after, -beta, -alpha, maxDepth - 1);
-        if (score >= beta) return score;
-        if (score > alpha) alpha = score;
+    double standPat = Evaluation::evaluate(pos);
+
+    if (standPat >= beta)
+        return beta;
+    if (standPat > alpha)
+        alpha = standPat;
+
+    auto captures = generateCaptures(pos);
+
+    for (const auto& mv : captures) {
+        Position next = applyMove(pos, mv);
+
+        double score = -quiescence(next, -beta, -alpha, ply + 1, ctx);
+
+        if (score >= beta)
+            return beta;
+        if (score > alpha)
+            alpha = score;
     }
+
     return alpha;
 }
 
-// ---- PVS с TT + TT-based history ----
-double pvs(Position& pos, int depth, double alpha, double beta, bool maximizing,
-           const Zobrist& zob, TranspositionTable& tt) 
-{
-    if (depth <= 0) return quiescence(pos, alpha, beta);
-    if (pos.isTerminal()) return Evaluation::evaluate(pos);
+// ------------------------------ PVS + LMR ------------------------------------
+double search(Position& pos, int depth, double alpha, double beta, int ply,
+              SearchContext& sc) {
+    ++sc.nodes;
 
-    uint64_t hash = zob.computeHash(pos);
-    auto it = tt.find(hash);
+    if (depth <= 0) return quiescence(pos, alpha, beta, ply, sc);
 
-    if (it != tt.end()) {
+    std::vector<Move> moves;
+    moves = getLegalMoves(pos);
+
+    if (moves.empty()) {
+        // терминальная позиция: мат или пат
+        if (isCheck(pos)) {
+            // мат: величина типа -MATE + ply, чтобы предпочитать более быстрый мат
+            return -1000000 + ply; 
+        } else {
+            // пат
+            return 0.0;
+        }
+    }
+
+    // TT probe
+    uint64_t key = sc.zob.computeHash(pos);
+    auto it = sc.tt.find(key);
+    if (it != sc.tt.end()) {
         const TTEntry& e = it->second;
         if (e.depth >= depth) {
             if (e.flag == TTEntry::EXACT) return e.value;
-            if (e.flag == TTEntry::LOWERBOUND && e.value > alpha) alpha = e.value;
-            if (e.flag == TTEntry::UPPERBOUND && e.value < beta) beta = e.value;
+            if (e.flag == TTEntry::LOWERBOUND) alpha = std::max(alpha, e.value);
+            else if (e.flag == TTEntry::UPPERBOUND) beta = std::min(beta, e.value);
             if (alpha >= beta) return e.value;
         }
     }
 
-    auto moves = getLegalMoves(pos);
-    if (moves.empty()) return Evaluation::evaluate(pos);
+    auto legal = getLegalMoves(pos);
+    if (legal.empty()) return Evaluation::evaluate(pos);
 
-    // TT move first
-    if (it != tt.end()) {
-        auto f = std::find(moves.begin(), moves.end(), it->second.bestMove);
-        if (f != moves.end()) std::iter_swap(moves.begin(), f);
-    }
+    // Move ordering: TT move, captures (MVV/LVA), killers, history
+    Move ttMove;
+    bool haveTTMove = false;
+    if (it != sc.tt.end()) { ttMove = it->second.bestMove; haveTTMove = true; }
 
-    // Сортировка с TT-based history: captures high, затем успешные TT ходы
-    std::vector<std::pair<int, Move>> scored;
-    scored.reserve(moves.size());
-    for (auto &mv : moves) {
+    struct Scored { int s; Move m; };
+    std::vector<Scored> list; list.reserve(legal.size());
+
+    for (const auto& mv : legal) {
         int score = 0;
-        Figures victim = pos.getPieceAt(mv.toX, mv.toY);
-        if (victim != (Figures)-1 || mv.flag == EN_PASSANT || mv.promoteTo != (Figures)-1)
-            score = 100000 + mvv_lva_score(pos, mv);
-        else if (it != tt.end() && mv == it->second.bestMove)
-            score = 50000 + it->second.historyCount; // TT history
-        scored.emplace_back(score, mv);
+        if (haveTTMove && mv == ttMove) score = 1'000'000; // TT on top
+        else if (is_capture_or_promo(pos, mv)) score = 500'000 + mvv_lva_score(pos, mv);
+        else {
+            // killers
+            if (ply < (int)sc.killers.size() && (mv == sc.killers[ply][0] || mv == sc.killers[ply][1]))
+                score = 200'000;
+            score += history_score(sc, pos, mv);
+        }
+        list.push_back({score, mv});
     }
 
-    std::sort(scored.begin(), scored.end(), [](const auto &a, const auto &b){ return a.first > b.first; });
+    std::sort(list.begin(), list.end(), [](const Scored& a, const Scored& b){ return a.s > b.s; });
 
     bool firstMove = true;
-    double bestValue = NEG_INF;
-    Move bestMove;
-    double localAlpha = alpha;
+    double best = NEG_INF;
+    Move bestMove{};
+    double originalAlpha = alpha;
 
-    for (const auto &pair : scored) {
-        const Move &mv = pair.second;
+    int moveCount = 0;
+
+    for (const auto& sm : list) {
+        const Move& mv = sm.m;
         Position after = applyMove(pos, mv);
+        ++moveCount;
 
         double score;
         if (firstMove) {
-            score = -pvs(after, depth - 1, -beta, -localAlpha, !maximizing, zob, tt);
+            // Full window on the first move — principal variation
+            score = -search(after, depth - 1, -beta, -alpha, ply + 1, sc);
             firstMove = false;
         } else {
-            double scoreProbe = -pvs(after, depth - 1, -localAlpha - 1e-6, -localAlpha, !maximizing, zob, tt);
-            if (scoreProbe > localAlpha && scoreProbe < beta)
-                score = -pvs(after, depth - 1, -beta, -localAlpha, !maximizing, zob, tt);
-            else score = scoreProbe;
+            // Late Move Reductions for quiet late moves
+            int reduction = 0;
+            bool quiet = !is_capture_or_promo(pos, mv);
+            if (quiet && depth >= 3 && moveCount > 3) {
+                // Simple LMR formula
+                reduction = 1 + (moveCount > 8);
+                // Encourage deeper search for historically good moves
+                if (history_score(sc, pos, mv) > 10'000) reduction = std::max(0, reduction - 1);
+            }
+
+            int newDepth = std::max(1, depth - 1 - reduction);
+            // Null-window (PVS) search
+            score = -search(after, newDepth, -alpha - 1e-6, -alpha, ply + 1, sc);
+            // Re-search if it improves alpha (fail-high in null-window)
+            if (score > alpha && reduction > 0) {
+                score = -search(after, depth - 1, -alpha - 1e-6, -alpha, ply + 1, sc);
+            }
+            if (score > alpha && score < beta) {
+                score = -search(after, depth - 1, -beta, -alpha, ply + 1, sc);
+            }
         }
 
-        if (score > bestValue) {
-            bestValue = score;
-            bestMove = mv;
-        }
-        if (score > localAlpha) localAlpha = score;
+        if (score > best) { best = score; bestMove = mv; }
+        if (score > alpha) alpha = score;
 
-        if (localAlpha >= beta) {
-            TTEntry entry;
-            entry.value = bestValue;
-            entry.depth = depth;
-            entry.bestMove = bestMove;
-            entry.flag = TTEntry::LOWERBOUND;
-            entry.historyCount = (it != tt.end() ? it->second.historyCount : 0) + depth * depth;
-            tt[hash] = entry;
-            return bestValue;
+        // Beta cutoff
+        if (alpha >= beta) {
+            // TT store as LOWERBOUND
+            TTEntry e; e.value = best; e.depth = depth; e.bestMove = bestMove; e.flag = TTEntry::LOWERBOUND;
+            sc.tt[key] = e;
+            // Killers / history (only on quiets)
+            if (!is_capture_or_promo(pos, mv)) {
+                push_killer(sc, ply, mv);
+                add_history(sc, pos, mv, depth);
+            }
+            return best;
         }
     }
 
-    TTEntry entry;
-    entry.value = bestValue;
-    entry.depth = depth;
-    entry.bestMove = bestMove;
-    entry.flag = TTEntry::EXACT;
-    entry.historyCount = (it != tt.end() ? it->second.historyCount : 0);
-    tt[hash] = entry;
+    // Store TT
+    TTEntry e; e.value = best; e.depth = depth; e.bestMove = bestMove;
+    e.flag = (best <= originalAlpha) ? TTEntry::UPPERBOUND : TTEntry::EXACT;
+    sc.tt[key] = e;
 
-    return bestValue;
+    // Reward PV quiet moves
+    if (bestMove.fromX || bestMove.fromY || bestMove.toX || bestMove.toY) {
+        if (!is_capture_or_promo(pos, bestMove)) add_history(sc, pos, bestMove, depth);
+    }
+
+    return best;
 }
 
-// ---- Найти лучший ход с итеративным углублением ----
+// -------------------------- Iterative deepening -------------------------------
 Move find_best_move_pvs(const Position& rootPos, int maxDepth, const Zobrist& zob, TranspositionTable& tt) {
-    Move bestMove;
-    double bestEval = NEG_INF;
     Position pos = rootPos;
+    SearchContext sc{zob, tt};
+    sc.maxDepth = maxDepth;
+
+    Move bestMove{};
+    double bestScore = 0.0; // eval of the PV
+
+    // aspiration window parameters (in centipawns)
+    double window = 50.0;
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
-        double alpha = NEG_INF;
-        double beta  =  INF;
+        double alpha = bestScore - window;
+        double beta  = bestScore + window;
 
-        auto moves = getLegalMoves(pos);
-        if (moves.empty()) break;
+        // Root move ordering
+        auto rootMoves = getLegalMoves(pos);
+        if (rootMoves.empty()) break;
 
-        uint64_t rootHash = zob.computeHash(pos);
-        auto it = tt.find(rootHash);
+        // Use previous TT best move to front
+        uint64_t rootKey = zob.computeHash(pos);
+        auto it = tt.find(rootKey);
         if (it != tt.end()) {
-            auto f = std::find(moves.begin(), moves.end(), it->second.bestMove);
-            if (f != moves.end()) std::iter_swap(moves.begin(), f);
+            auto f = std::find(rootMoves.begin(), rootMoves.end(), it->second.bestMove);
+            if (f != rootMoves.end()) std::iter_swap(rootMoves.begin(), f);
         }
 
-        std::sort(moves.begin(), moves.end(), [&](const Move& a, const Move& b) {
-            int sa = mvv_lva_score(pos, a);
-            int sb = mvv_lva_score(pos, b);
-            if (sa != sb) return sa > sb;
-            if (it != tt.end()) {
-                if (a == it->second.bestMove) return true;
-                if (b == it->second.bestMove) return false;
+        // Score root moves
+        struct RootScored { int s; Move m; };
+        std::vector<RootScored> rlist; rlist.reserve(rootMoves.size());
+        for (const auto& mv : rootMoves) {
+            int s = (it != tt.end() && mv == it->second.bestMove) ? 1'000'000 : 0;
+            if (is_capture_or_promo(pos, mv)) s += 500'000 + mvv_lva_score(pos, mv);
+            s += history_score(sc, pos, mv);
+            rlist.push_back({s, mv});
+        }
+        std::sort(rlist.begin(), rlist.end(), [](const RootScored& a, const RootScored& b){ return a.s > b.s; });
+
+        Move bestAtDepth{}; double bestVal = NEG_INF; bool first = true;
+
+        for (;;) {
+            // Search all moves with current (possibly aspirated) window
+            double localAlpha = alpha, localBeta = beta;
+            bestVal = NEG_INF; first = true; bestAtDepth = Move{};
+
+            for (const auto& rm : rlist) {
+                Position after = applyMove(pos, rm.m);
+                double score;
+                if (first) {
+                    score = -search(after, depth - 1, -localBeta, -localAlpha, 1, sc);
+                    first = false;
+                } else {
+                    score = -search(after, depth - 1, -localAlpha - 1e-6, -localAlpha, 1, sc);
+                    if (score > localAlpha && score < localBeta)
+                        score = -search(after, depth - 1, -localBeta, -localAlpha, 1, sc);
+                }
+                if (score > bestVal) { bestVal = score; bestAtDepth = rm.m; }
+                if (score > localAlpha) localAlpha = score;
             }
-            return false;
-        });
 
-        Move bestThisDepth;
-        double bestThisEval = NEG_INF;
-        bool first = true;
-
-        for (auto &mv : moves) {
-            Position after = applyMove(pos, mv);
-            double score;
-            if (first) {
-                score = -pvs(after, depth - 1, -beta, -alpha, false, zob, tt);
-                first = false;
-            } else {
-                score = -pvs(after, depth - 1, -alpha - 1e-6, -alpha, false, zob, tt);
-                if (score > alpha && score < beta)
-                    score = -pvs(after, depth - 1, -beta, -alpha, false, zob, tt);
+            // Aspiration adjustment
+            if (bestVal <= alpha) {
+                // fail-low: widen down
+                alpha -= window; beta = beta; window *= 2.0; // expand only downward first
+                if (alpha < -1e9) { alpha = -INF; break; }
+                continue;
             }
-
-            if (score > bestThisEval) { bestThisEval = score; bestThisDepth = mv; }
-            alpha = std::max(alpha, score);
+            if (bestVal >= beta) {
+                // fail-high: widen up
+                beta += window; window *= 2.0;
+                if (beta > 1e9) { beta = INF; break; }
+                continue;
+            }
+            break; // inside window
         }
 
-        bestEval = bestThisEval;
-        bestMove = bestThisDepth;
+        bestMove = bestAtDepth;
+        bestScore = bestVal;
 
-        if (bestEval > 1e8 || bestEval < -1e8) break;
+        // Save principal move at root to TT
+        TTEntry rootE; rootE.value = bestScore; rootE.depth = depth; rootE.bestMove = bestMove; rootE.flag = TTEntry::EXACT;
+        tt[zob.computeHash(pos)] = rootE;
+
+        // Early exit if a decisive score is found
+        if (bestScore > 1e8 || bestScore < -1e8) break;
+
+        // Slowly increase aspiration window for next iteration
+        window = std::max(30.0, window * 0.75);
     }
 
     return bestMove;
+}
+
+// -------------------------- Fixed depth evaluation ---------------------------
+double evaluate_with_depth(const Position& rootPos, int depth,
+                           const Zobrist& zob, TranspositionTable& tt) {
+    Position pos = rootPos;
+    SearchContext sc{zob, tt};
+    sc.maxDepth = depth;
+
+    // Run plain alpha-beta search at exact depth without iterative deepening
+    double val = search(pos, depth, -INF, INF, 0, sc);
+    return val;
 }

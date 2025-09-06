@@ -4,15 +4,16 @@
 #include <random>
 #include <cstdint>
 #include "../utils/chess_logic.h"
-
+// Transposition Table entry used by search
 struct TTEntry {
-    double value;      // оценка позиции
-    int depth;         // глубина поиска, на которой записано значение
-    enum Flag { EXACT, LOWERBOUND, UPPERBOUND } flag;
-    Move bestMove;     // лучший ход для позиции
-    int historyCount;  // счетчик успешных ходов для TT-based history heuristic
-
-    TTEntry() : value(0), depth(0), flag(EXACT), bestMove(), historyCount(0) {}
+    // Evaluated score from the POV of the side to move in 'Position' when stored
+    double value = 0.0;
+    // Remaining search depth (in plies) the value was computed with
+    int    depth = 0;
+    // Best move found from this position at the stored depth
+    Move   bestMove{};
+    // Node type for alpha-beta bounds handling
+    enum Flag : uint8_t { EXACT = 0, LOWERBOUND = 1, UPPERBOUND = 2 } flag = EXACT;
 };
 
 class Zobrist {

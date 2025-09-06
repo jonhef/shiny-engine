@@ -385,27 +385,35 @@ std::vector<Move> generatePseudoMoves(const Position& pos) {
                     // Рокировки (упрощённые проверки: пустые клетки + клетки не под атакой)
                     bool isWhite = (fig == WHITE_KING);
                     int yRow = isWhite ? 0 : 7;
-                    if (x == 4 && y == yRow) {
-                        // короткая: f=5,g=6 должны быть пусты и не под атакой
-                        if (!anyAt(5, yRow) && !anyAt(6, yRow)) {
-                            if (!isSquareAttacked(pos, 4, yRow, !isWhite) &&
-                                !isSquareAttacked(pos, 5, yRow, !isWhite) &&
-                                !isSquareAttacked(pos, 6, yRow, !isWhite)) {
-                                // валидацию наличия ладьи на h(7) либо прав рокировки предполагаем на уровне Position
-                                Move mv(4, yRow, 6, yRow, (Figures)-1);
-                                mv.flag = CASTLE_SHORT;
-                                moves.push_back(mv);
-                            }
+
+                    bool canShort = false, canLong = false;
+                    if (isWhite) {
+                        canShort = pos.getShortWhiteCastling() && pos[WHITE_ROOK][7][0];
+                        canLong  = pos.getLongWhiteCastling()  && pos[WHITE_ROOK][0][0];
+                    } else {
+                        canShort = pos.getShortBlackCastling() && pos[BLACK_ROOK][7][7];
+                        canLong  = pos.getLongBlackCastling()  && pos[BLACK_ROOK][0][7];
+                    }
+
+                    // короткая
+                    if (canShort && !anyAt(5, yRow) && !anyAt(6, yRow)) {
+                        if (!isSquareAttacked(pos, 4, yRow, !isWhite) &&
+                            !isSquareAttacked(pos, 5, yRow, !isWhite) &&
+                            !isSquareAttacked(pos, 6, yRow, !isWhite)) {
+                            Move mv(4, yRow, 6, yRow, (Figures)-1);
+                            mv.flag = CASTLE_SHORT;
+                            moves.push_back(mv);
                         }
-                        // длинная: b=1,c=2,d=3 пусты и клетки 4,3,2 не под атакой
-                        if (!anyAt(1, yRow) && !anyAt(2, yRow) && !anyAt(3, yRow)) {
-                            if (!isSquareAttacked(pos, 4, yRow, !isWhite) &&
-                                !isSquareAttacked(pos, 3, yRow, !isWhite) &&
-                                !isSquareAttacked(pos, 2, yRow, !isWhite)) {
-                                Move mv(4, yRow, 2, yRow, (Figures)-1);
-                                mv.flag = CASTLE_LONG;
-                                moves.push_back(mv);
-                            }
+                    }
+
+                    // длинная
+                    if (canLong && !anyAt(1, yRow) && !anyAt(2, yRow) && !anyAt(3, yRow)) {
+                        if (!isSquareAttacked(pos, 4, yRow, !isWhite) &&
+                            !isSquareAttacked(pos, 3, yRow, !isWhite) &&
+                            !isSquareAttacked(pos, 2, yRow, !isWhite)) {
+                            Move mv(4, yRow, 2, yRow, (Figures)-1);
+                            mv.flag = CASTLE_LONG;
+                            moves.push_back(mv);
                         }
                     }
                 }
@@ -419,15 +427,26 @@ std::vector<Move> generatePseudoMoves(const Position& pos) {
 // getLegalMoves: фильтруем псевдоходы, удаляя те, что оставляют короля под шахом.
 // Оптимизация: минимум копий, быстрые проверки isCheck(after)
 std::vector<Move> getLegalMoves(const Position& pos) {
+    std::vector<Move> pseudo = generatePseudoMoves(pos);
     std::vector<Move> legal;
-    auto pseudo = generatePseudoMoves(pos);
     legal.reserve(pseudo.size());
-    for (const Move &mv : pseudo) {
+
+    for (const Move& mv : pseudo) {
         Position after = applyMove(pos, mv);
-        if (!isCheck(after)) legal.push_back(mv);
+
+        bool moverWasWhite = pos.isWhiteMove();
+        auto king = findKing(after, moverWasWhite);
+        if (king.first == -1) continue;
+
+        if (isSquareAttacked(after, king.first, king.second, !moverWasWhite))
+            continue;
+
+        legal.push_back(mv);
     }
+
     return legal;
 }
+
 
 // isCheckmate: быстрый путь — если нет легальных ходов и король под шахом.
 bool isCheckmate(const Position& pos) {

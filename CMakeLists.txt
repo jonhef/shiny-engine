@@ -30,9 +30,13 @@ add_executable(shiny-engine
 )
 
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O3")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O1 -fsanitize=address -fno-omit-frame-pointer")
 
-set(CMAKE_CXX_FLAGS_LINKER "${CMAKE_CXX_FLAGS_LINKER} -stack_size=268435456")
+set(CMAKE_CXX_FLAGS_LINKER "${CMAKE_CXX_FLAGS_LINKER} -stack_size=536870912")
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_CXX_FLAGS_LINKER "${CMAKE_CXX_FLAGS_LINKER} -fsanitize=address")
+endif()
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g -O3")
 

@@ -11,7 +11,7 @@
 #define REWARD_ROOK_FULLOPEN_TILE 12
 
 namespace Evaluation {
-    double evaluate(Position pos);
+    double evaluate(const Position& pos);
 }
 
 #endif // EVALUATION_H
