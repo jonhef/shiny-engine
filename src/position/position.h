@@ -63,7 +63,7 @@ class Position {
     std::array<std::array<Piece, 8>, 8> board;
 
     bool isWhiteMove;
-    bool enPassant;
+    std::pair<int, int> squareEnPassant;
     /* 
        0b0001 short white 
        0b0010 long white 
@@ -73,6 +73,15 @@ class Position {
     short castleRights;
 public:
     Position();
+    Position(
+        std::array<std::array<Piece, 8>, 8>      board,
+        bool                               isWhiteMove,
+        bool                          shortWhiteCastle,
+        bool                           longWhiteCastle,
+        bool                          shortBlackCastle,
+        bool                           longBlackCastle,
+        std::pair<int, int> squareEnPassant = {-1, -1}
+    );
     ~Position();
     
     Piece getPiece(int x, int y) const;
@@ -83,7 +92,7 @@ public:
     /* x = 0, y = 0 is a1 */
     void setPiece(int x, int y, Figures figure, bool color);
 
-    bool isSquareAttacked(int x, int y) const;
+    bool isSquareAttacked(const std::pair<int, int>& pos) const;
     bool isCheck() const;
 };
 
