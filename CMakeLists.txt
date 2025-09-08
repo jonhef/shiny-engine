@@ -7,29 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(shiny-engine 
     src/main.cpp
-
-    src/evaluation/evaluation.h
-    src/evaluation/evaluation.cpp
-
-    src/searching/alpha_beta.cpp
-    src/searching/alpha_beta.h
-    src/searching/tt.cpp
-    src/searching/tt.h
-
-    src/utils/board.cpp 
-    src/utils/board.h 
-    src/utils/chess_logic.cpp 
-    src/utils/chess_logic.h 
-    src/utils/fen_utils.cpp 
-    src/utils/fen_utils.h 
-    src/utils/figures.h 
-    src/utils/position.cpp 
-    src/utils/position.h 
-    src/utils/ratio.cpp 
-    src/utils/ratio.h
 )
 
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O1 -fsanitize=address -fno-omit-frame-pointer")
 
 set(CMAKE_CXX_FLAGS_LINKER "${CMAKE_CXX_FLAGS_LINKER} -stack_size=536870912")
