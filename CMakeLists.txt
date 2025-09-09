@@ -7,6 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(shiny-engine 
     src/main.cpp
+
+    src/position/position.h
+    src/position/position.cpp
+
+    src/fen/fen.h
+    src/fen/fen.cpp
 )
 
 set(CMAKE_BUILD_TYPE Release)

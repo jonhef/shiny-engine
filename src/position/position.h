@@ -12,7 +12,9 @@ enum Figures {
     ROOK = 500,
     QUEEN = 900,
     KING = 400,
-    EMPTY = 0
+    EMPTY = 0,
+    WHITE = true,
+    BLACK = false
 };
 
 class Piece {
@@ -60,6 +62,7 @@ public:
 };
 
 class Position {
+    /* first index for rows while second is for cols */
     std::array<std::array<Piece, 8>, 8> board;
 
     bool isWhiteMove;
@@ -94,6 +97,28 @@ public:
 
     bool isSquareAttacked(const std::pair<int, int>& pos) const;
     bool isCheck() const;
+
+    bool isWhiteToMove() const;
+
+    void setIsWhiteMove(bool side);
+    /* 
+       0b0001 short white 
+       0b0010 long white 
+       0b0100 short black
+       0b1000 long black
+    */
+    void setCastleRights(short castleRights);
+    /* 
+       0b0001 short white 
+       0b0010 long white 
+       0b0100 short black
+       0b1000 long black
+    */
+    short getCastleRights() const;
+    
+    void setEnPassant(std::pair<int, int> enPassant);
+    void setEnPassant(int x, int y);
+    std::pair<int, int> getEnPassant() const;
 };
 
-#endif
+#endif // POSITION_H

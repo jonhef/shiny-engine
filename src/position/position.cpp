@@ -223,3 +223,39 @@ bool Position::isCheck() const {
     }
     return false;
 }
+
+void Position::setIsWhiteMove(bool side) {
+    this->isWhiteMove = side;
+}
+
+void Position::setCastleRights(short castleRights) {
+    this->castleRights = castleRights;
+}
+
+short Position::getCastleRights() const {
+    return this->castleRights;
+}
+
+bool Position::isWhiteToMove() const {
+    return this->isWhiteMove;
+}
+
+void Position::setEnPassant(int x, int y) {
+    if (x < -1 || x >= 8) {
+        x %= 8;
+    }
+    if (y < -1 || y >= 8) {
+        y %= 8;
+    }
+
+    this->squareEnPassant.first = x;
+    this->squareEnPassant.second = y;
+}
+
+void Position::setEnPassant(std::pair<int, int> enPassant) {
+    this->setEnPassant(enPassant.first, enPassant.second);
+}
+
+std::pair<int, int> Position::getEnPassant() const {
+    return this->squareEnPassant;
+}
