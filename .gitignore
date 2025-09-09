@@ -52,3 +52,7 @@ Makefile
 shiny-engine
 
 CMakeFiles
+compile_commands.json
+
+.cache
+.clangd
