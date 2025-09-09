@@ -1,5 +1,5 @@
-
 #include "position.h"
+#include <utility>
 
 Piece::Piece() {
     type = PAWN;
@@ -64,16 +64,18 @@ Position::Position() {
             board[i][j] = Piece();
         }
     }
+
+    this->squareEnPassant = std::make_pair<int, int>(-1, -1);
 }
 
 Position::Position(
     std::array<std::array<Piece, 8>, 8>      board,
     bool                               isWhiteMove,
-    bool                  shortWhiteCastle = false,
-    bool                   longWhiteCastle = false,
-    bool                  shortBlackCastle = false,
-    bool                   longBlackCastle = false,
-    std::pair<int, int> squareEnPassant = {-1, -1}
+    bool                          shortWhiteCastle,
+    bool                           longWhiteCastle,
+    bool                          shortBlackCastle,
+    bool                           longBlackCastle,
+    std::pair<int, int>            squareEnPassant
 ) {
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
@@ -248,8 +250,7 @@ void Position::setEnPassant(int x, int y) {
         y %= 8;
     }
 
-    this->squareEnPassant.first = x;
-    this->squareEnPassant.second = y;
+    this->squareEnPassant = std::make_pair(x, y);
 }
 
 void Position::setEnPassant(std::pair<int, int> enPassant) {

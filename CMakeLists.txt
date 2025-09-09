@@ -15,7 +15,7 @@ add_executable(shiny-engine
     src/fen/fen.cpp
 )
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O1 -fsanitize=address -fno-omit-frame-pointer")
 
 set(CMAKE_CXX_FLAGS_LINKER "${CMAKE_CXX_FLAGS_LINKER} -stack_size=536870912")

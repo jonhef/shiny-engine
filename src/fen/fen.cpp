@@ -1,6 +1,7 @@
 #include "fen.h"
 #include <string>
 #include <sstream>
+#include <utility>
 
 bool decodeFEN(const std::string& fen, Position& pos) {
     std::stringstream ss(fen);
@@ -16,6 +17,7 @@ bool decodeFEN(const std::string& fen, Position& pos) {
                     break;
                 case 'P':
                     pos.setPiece(i, j, PAWN, WHITE);
+                    break;
                 case 'r':
                     pos.setPiece(i, j, ROOK, BLACK);
                     break;
@@ -49,7 +51,7 @@ bool decodeFEN(const std::string& fen, Position& pos) {
             }
             if (*iter >= '0' && '9' >= *iter) {
                 for (int y = j; y < j + int(*iter - '0'); ++y) {
-                    pos.setPiece(i, j, WHITE, false);
+                    pos.setPiece(i, y, EMPTY, WHITE);
                 }
                 j += int(*iter - '0');
             }
@@ -58,7 +60,10 @@ bool decodeFEN(const std::string& fen, Position& pos) {
     }
     
     // side to move
-    std::getline(ss, row, ' ');
+    std::stringstream additionalParams;
+    additionalParams << row;
+    std::getline(additionalParams, row, ' ');
+    std::getline(additionalParams, row, ' ');
     if (row == "w") {
         pos.setIsWhiteMove(WHITE);
     } else {
@@ -66,7 +71,7 @@ bool decodeFEN(const std::string& fen, Position& pos) {
     }
 
     // castling rights
-    std::getline(ss, row, ' ');
+    std::getline(additionalParams, row, ' ');
     if (row != "-") {
         short castleRights = 0;
         auto iter = row.begin();
@@ -87,9 +92,11 @@ bool decodeFEN(const std::string& fen, Position& pos) {
     }
 
     // en passant target square
-    std::getline(ss, row, ' ');
+    std::getline(additionalParams, row, ' ');
     if (row != "-") {
-        pos.setEnPassant(int(row[0] - 'a'), int(row[1] - '0'));
+        pos.setEnPassant(int(char(row[0]) - 'a'), int(char(row[1]) - '0'));
+    } else {
+        pos.setEnPassant(-1, -1);
     }
 
     return true;
@@ -131,6 +138,9 @@ bool encodeFEN(std::string& fen, const Position& pos) {
             default: break;
             }
         }
+        if (mpties != 0) {
+            fen.append(std::to_string(mpties));
+        }
         fen.append("/");
     }
     fen.pop_back();
@@ -161,13 +171,18 @@ bool encodeFEN(std::string& fen, const Position& pos) {
 
     // en passant square
     fen.append(" ");
-    if (pos.getEnPassant().first != -1) {
+    auto enPassant = pos.getEnPassant();
+    if (enPassant.first != -1) {
         fen.append(std::string(
-            char((int)'a' + pos.getEnPassant().first), 
-            char((int)'0' + pos.getEnPassant().second)
+            char((int)'a' + enPassant.first), 
+            char((int)'0' + enPassant.second)
         ));
+    } else {
+        fen.append("-");
     }
 
     // add for halfmove clock and all moves
     fen.append(" 0 1");
+
+    return true;
 }
