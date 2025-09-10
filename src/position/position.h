@@ -4,6 +4,7 @@
 
 #include <utility>
 #include <array>
+#include <vector>
 
 enum Figures {
     PAWN = 100,
@@ -15,6 +16,15 @@ enum Figures {
     EMPTY = 0,
     WHITE = true,
     BLACK = false
+};
+
+struct Move {
+    int fromX, fromY;
+    int toX, toY;
+    Figures promotion; // EMPTY if there is not promotion
+    bool isEnPassant = false;
+    bool isCastleShort = false;
+    bool isCastleLong  = false;
 };
 
 class Piece {
@@ -87,11 +97,14 @@ public:
     );
     ~Position();
     
-    Piece getPiece(int x, int y) const;
+    /* x = 0, y = 0 is a1 */
+    inline Piece getPiece(int x, int y) const {
+        return board[x][y];
+    }
     
     /* it changes original piece's position 
        x = 0, y = 0 is a1 */
-    void setPiece(int x, int y, Piece& piece);
+    void setPiece(int x, int y, Piece piece);
     /* x = 0, y = 0 is a1 */
     void setPiece(int x, int y, Figures figure, bool color);
 
@@ -119,6 +132,12 @@ public:
     void setEnPassant(std::pair<int, int> enPassant);
     void setEnPassant(int x, int y);
     std::pair<int, int> getEnPassant() const;
+
+    std::vector<Move> getLegalMoves() const;
+    
+    void applyMove(const Move& move);
 };
+
+static void applyMove(Position& pos, const Move& m);
 
 #endif // POSITION_H
