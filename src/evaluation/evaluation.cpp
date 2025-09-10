@@ -9,12 +9,12 @@ using PST = std::array<std::array<int, 8>, 8>;
 // pawn
 constexpr PST pawn_table = {{ 
     {{  0,   0,   0,   0,   0,   0,   0,   0 }},
-    {{ 50,  50,  50,  50,  50,  50,  50,  50 }},
-    {{ 10,  10,  20,  30,  30,  20,  10,  10 }},
-    {{  5,   5,  10,  25,  25,  10,   5,   5 }},
-    {{  0,   0,   0,  20,  20,   0,   0,   0 }},
-    {{  5,  -5, -10,   0,   0, -10,  -5,   5 }},
     {{  5,  10,  10, -20, -20,  10,  10,   5 }},
+    {{  5,  -5, -10,   0,   0, -10,  -5,   5 }},
+    {{  0,   0,   0,  20,  20,   0,   0,   0 }},
+    {{  5,   5,  10,  25,  25,  10,   5,   5 }},
+    {{ 10,  10,  20,  30,  30,  20,  10,  10 }},
+    {{ 50,  50,  50,  50,  50,  50,  50,  50 }},
     {{  0,   0,   0,   0,   0,   0,   0,   0 }}
 }}; 
 
@@ -110,24 +110,15 @@ const std::unordered_map<Figures, int> phases_table = {
 
 constexpr int phase_max = 24;
 
-constexpr PST mirror(const PST& table) {
-    PST mirrored = {};
-    for (int file = 0; file < 8; file++) {
-        for (int rank = 0; rank < 8; rank++) {
-            mirrored[file][rank] = table[file][7 - rank];
-        }
-    }
-    return mirrored;
-}
-
 /*{
     white {pawns, doubled pawns, isolated pawns},
     black {pawns, doubled pawns, isolated pawns}
 }*/
-constexpr std::pair<std::array<int, 3>, std::array<int, 3>>
+// возвращает: { white: {pawns, doubled_extra, isolated}, black: {...} }
+std::pair<std::array<int, 3>, std::array<int, 3>>
 count_pawns(const Position& pos) {
     std::pair<std::array<int, 3>, std::array<int, 3>> res{};
-    auto& [white, black] = res; 
+    auto& [white, black] = res;
 
     std::array<int, 8> wFiles{}; // количество белых пешек на файле
     std::array<int, 8> bFiles{}; // количество чёрных пешек на файле
@@ -138,33 +129,33 @@ count_pawns(const Position& pos) {
             Piece p = pos.getPiece(file, rank);
             if (p.getType() == PAWN) {
                 if (p.isWhite()) {
-                    white[0]++; 
+                    white[0]++;
                     wFiles[file]++;
                 } else {
-                    black[0]++; 
+                    black[0]++;
                     bFiles[file]++;
                 }
             }
         }
     }
 
-    // doubled pawns
+    // doubled pawns: считаем лишние пешки на файле (count - 1)
     for (int f = 0; f < 8; ++f) {
-        white[1] += (wFiles[f] > 1) ? wFiles[f] : 0;
-        black[1] += (bFiles[f] > 1) ? bFiles[f] : 0;
+        if (wFiles[f] > 1) white[1] += (wFiles[f] - 1);
+        if (bFiles[f] > 1) black[1] += (bFiles[f] - 1);
     }
 
-    // isolated pawns
+    // isolated pawns (количество пешек без соседей)
     for (int f = 0; f < 8; ++f) {
         if (wFiles[f] > 0) {
             bool left = (f > 0) && wFiles[f - 1] > 0;
             bool right = (f < 7) && wFiles[f + 1] > 0;
-            white[2] += (!left && !right) ? wFiles[f] : 0;
+            if (!left && !right) white[2] += wFiles[f];
         }
         if (bFiles[f] > 0) {
             bool left = (f > 0) && bFiles[f - 1] > 0;
             bool right = (f < 7) && bFiles[f + 1] > 0;
-            black[2] += (!left && !right) ? bFiles[f] : 0;
+            if (!left && !right) black[2] += bFiles[f];
         }
     }
 
@@ -307,80 +298,103 @@ constexpr std::pair<int, int> evaluateKingSafety(const Position& pos, const std:
     return res;
 }
 
-
-
 int evaluate(const Position& pos) {
-    // material evaluation
-    int res = 0;
-    
-    std::pair<int, int> wking, bking;
+    // material values in centipawns
+    const std::unordered_map<Figures, int> pieceValue = {
+        {PAWN, 100},
+        {KNIGHT, 320},
+        {BISHOP, 330},
+        {ROOK, 500},
+        {QUEEN, 900},
+        {KING, 20000}
+    };
+
+    std::pair<int,int> wking = {-1,-1}, bking = {-1,-1};
     int curphase = 0;
 
-    int bm = 0, wm = 0;
-    for (int i = 0; i < 8; ++i) {
-        for (int j = 0; j < 8; ++j) {
-            Piece piece = pos.getPiece(i, j);
-            int m = 0;
-            if (piece.getType() == KING) {
+    int materialW = 0, materialB = 0;
+    int pstW = 0, pstB = 0;
+    int pawnPenW = 0, pawnPenB = 0;
+    int kingEvalW = 0, kingEvalB = 0;
+    int kingSafetyW = 0, kingSafetyB = 0;
+
+    // iterate board: file (x) 0..7, rank (y) 0..7
+    for (int file = 0; file < 8; ++file) {
+        for (int rank = 0; rank < 8; ++rank) {
+            Piece piece = pos.getPiece(file, rank);
+            Figures t = piece.getType();
+            if (t == EMPTY) continue;
+
+            if (t == KING) {
+                if (piece.isWhite()) wking = {file, rank};
+                else bking = {file, rank};
+                continue;
+            }
+
+            int base = 0;
+            auto it = pieceValue.find(t);
+            if (it != pieceValue.end()) base = it->second;
+
+            // PST: теперь таблицы трактуются как PST[rank][file]
+            int pstv = 0;
+            auto itpst = pst_map.find(t);
+            if (itpst != pst_map.end()) {
                 if (piece.isWhite()) {
-                    wking = std::make_pair(i, j);
+                    pstv = itpst->second[rank][file];
                 } else {
-                    bking = std::make_pair(i, j);
+                    // для чёрных зеркалим по рангу
+                    pstv = itpst->second[7 - rank][file];
                 }
-                continue;
             }
-            m += piece.getType();
 
-            if (piece.getType() == EMPTY) {
-                continue;
-            }
-            
             if (piece.isWhite()) {
-                m += pst_map.at(piece.getType())[i][j];
-                wm += m;
+                materialW += base;
+                pstW += pstv;
             } else {
-                m += mirror(pst_map.at(piece.getType()))[i][j];
-                bm += m;
+                materialB += base;
+                pstB += pstv;
             }
 
-            curphase += phases_table.at(piece.getType());
+            auto itph = phases_table.find(t);
+            if (itph != phases_table.end()) curphase += itph->second;
         }
     }
 
+    // blended king eval
     int phase = std::min(curphase, phase_max);
     int mid_weight = phase;
     int end_weight = phase_max - phase;
 
-    // white king
-    {
-        int mid_eval = (
-            (KING + king_mid_table[wking.first][wking.second]) * mid_weight +
-            (KING + king_end_table[wking.first][wking.second]) * end_weight
-        ) / phase_max;
-        wm += mid_eval;
+    if (wking.first >= 0) {
+        int mid = KING + king_mid_table[wking.second][wking.first];   // note: indexing rank,file if tables defined that way
+        int end = KING + king_end_table[wking.second][wking.first];
+        kingEvalW = (mid * mid_weight + end * end_weight) / phase_max;
+    }
+    if (bking.first >= 0) {
+        int mid = KING + king_mid_table[7 - bking.second][bking.first]; // mirror for black
+        int end = KING + king_end_table[7 - bking.second][bking.first];
+        kingEvalB = (mid * mid_weight + end * end_weight) / phase_max;
     }
 
-    // black king
-    {
-        int mid_eval = (
-            (KING + mirror(king_mid_table)[wking.first][wking.second]) * mid_weight +
-            (KING + mirror(king_end_table)[bking.first][bking.second]) * end_weight
-        ) / phase_max;
-        bm += mid_eval;
-    }
-
+    // pawns and penalties
     auto pawns = count_pawns(pos);
+    auto whiteP = pawns.first;
+    auto blackP = pawns.second;
 
-    wm -= pawns.first[1] * 12;
-    wm -= pawns.first[2] * 15;
-    
-    bm -= pawns.first[1] * 12;
-    bm -= pawns.first[2] * 12;
+    pawnPenW = whiteP[1] * 12 + whiteP[2] * 15;
+    pawnPenB = blackP[1] * 12 + blackP[2] * 15;
 
-    auto king_penalty = evaluateKingSafety(pos, wking, bking);
+    auto king_pen = evaluateKingSafety(pos, wking, bking);
+    kingSafetyW = king_pen.first;
+    kingSafetyB = king_pen.second;
 
-    wm -= king_penalty.first;
-    bm -= king_penalty.second;
+    int wm = materialW + pstW + kingEvalW - pawnPenW - kingSafetyW;
+    int bm = materialB + pstB + kingEvalB - pawnPenB - kingSafetyB;
 
-    return wm - bm;
+    int score = wm - bm;
+
+    constexpr int INF = 1000000000;
+    if (score > INF-1) score = INF-1;
+    if (score < -INF+1) score = -INF+1;
+    return score;
 }
