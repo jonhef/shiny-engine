@@ -13,47 +13,47 @@ bool decodeFEN(const std::string& fen, Position& pos) {
         for (int j = 0; j < 8; ++j) {
             switch (*iter) {
                 case 'p':
-                    pos.setPiece(i, j, PAWN, BLACK);
+                    pos.setPiece(j, i, PAWN, BLACK);
                     break;
                 case 'P':
-                    pos.setPiece(i, j, PAWN, WHITE);
+                    pos.setPiece(j, i, PAWN, WHITE);
                     break;
                 case 'r':
-                    pos.setPiece(i, j, ROOK, BLACK);
+                    pos.setPiece(j, i, ROOK, BLACK);
                     break;
                 case 'R':
-                    pos.setPiece(i, j, ROOK, WHITE);
+                    pos.setPiece(j, i, ROOK, WHITE);
                     break;
                 case 'n':
-                    pos.setPiece(i, j, KNIGHT, BLACK);
+                    pos.setPiece(j, i, KNIGHT, BLACK);
                     break;
                 case 'N':
-                    pos.setPiece(i, j, KNIGHT, WHITE);
+                    pos.setPiece(j, i, KNIGHT, WHITE);
                     break;
                 case 'b':
-                    pos.setPiece(i, j, BISHOP, BLACK);
+                    pos.setPiece(j, i, BISHOP, BLACK);
                     break;
                 case 'B':
-                    pos.setPiece(i, j, BISHOP, WHITE);
+                    pos.setPiece(j, i, BISHOP, WHITE);
                     break;
                 case 'q':
-                    pos.setPiece(i, j, QUEEN, BLACK);
+                    pos.setPiece(j, i, QUEEN, BLACK);
                     break;
                 case 'Q':
-                    pos.setPiece(i, j, QUEEN, WHITE);
+                    pos.setPiece(j, i, QUEEN, WHITE);
                     break;
                 case 'k':
-                    pos.setPiece(i, j, KING, BLACK);
+                    pos.setPiece(j, i, KING, BLACK);
                     break;
                 case 'K':
-                    pos.setPiece(i, j, KING, WHITE);
+                    pos.setPiece(j, i, KING, WHITE);
                     break;
             }
             if (*iter >= '0' && '9' >= *iter) {
                 for (int y = j; y < j + int(*iter - '0'); ++y) {
-                    pos.setPiece(i, y, EMPTY, WHITE);
+                    pos.setPiece(y, i, EMPTY, WHITE);
                 }
-                j += int(*iter - '0');
+                j += int(*iter - '1');
             }
             ++iter;
         }
@@ -105,9 +105,9 @@ bool decodeFEN(const std::string& fen, Position& pos) {
 bool encodeFEN(std::string& fen, const Position& pos) {
     fen.clear();
 
-    for (int i = 7; i >= 0; --i) {
+    for (int j = 7; j >= 0; --j) {
         int mpties = 0;
-        for (int j = 0; j < 8; ++j) {
+        for (int i = 0; i < 8; ++i) {
             Piece type = pos.getPiece(i, j);
             if (type.getType() == EMPTY) {
                 ++mpties;

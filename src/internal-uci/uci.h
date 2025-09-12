@@ -11,6 +11,8 @@ constexpr int TRANSPOSITIONTABLE_SIZE = 128; // in megabytes
 void handlePosition(const std::string& line, Position& pos);
 void handleGo(const std::string& line, Position& pos, TranspositionTable& tt);
 
+std::string encodeUCIMove(const Move& mv);
+
 void uci_loop();
 
 #endif // UCI_H

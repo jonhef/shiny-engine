@@ -396,5 +396,8 @@ int evaluate(const Position& pos) {
     constexpr int INF = 1000000000;
     if (score > INF-1) score = INF-1;
     if (score < -INF+1) score = -INF+1;
+
+    if (!pos.isWhiteToMove()) score = -score;
+
     return score;
 }

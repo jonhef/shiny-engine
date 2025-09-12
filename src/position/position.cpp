@@ -2,8 +2,8 @@
 #include <utility>
 
 Piece::Piece() {
-    type = PAWN;
-    color = true;
+    type = EMPTY;
+    color = false;
     x = 0;
     y = 0;
 }
@@ -56,16 +56,16 @@ void Piece::setType(Figures figure) {
     type = figure;
 }
 
-
-
 Position::Position() {
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
-            board[i][j] = Piece();
+            board[i][j] = Piece(EMPTY, false);
         }
     }
 
     this->squareEnPassant = std::make_pair<int, int>(-1, -1);
+    this->castleRights = 0;
+    this->isWhiteMove = true; 
 }
 
 Position::Position(
@@ -89,8 +89,9 @@ Position::Position(
     castleRights |= (int)shortBlackCastle << 2;
     castleRights |= (int)longBlackCastle << 3;
 
-    this->squareEnPassant.first = squareEnPassant.first;
-    this->squareEnPassant.second = squareEnPassant.second;
+    this->squareEnPassant = squareEnPassant;
+
+    this->isWhiteMove = isWhiteMove;
 }
 
 Position::~Position() {
@@ -215,6 +216,10 @@ bool Position::isCheck() const {
         }
     }
 
+    if (kingPos.first == -1) {
+        return false; 
+    }
+
     if (this->isSquareAttacked(kingPos)) {
         return true;
     }
@@ -238,14 +243,11 @@ bool Position::isWhiteToMove() const {
 }
 
 void Position::setEnPassant(int x, int y) {
-    if (x < -1 || x >= 8) {
-        x %= 8;
+    if (x < 0 || x >= 8 || y < 0 || y >= 8) {
+        this->squareEnPassant = {-1, -1};
+        return;
     }
-    if (y < -1 || y >= 8) {
-        y %= 8;
-    }
-
-    this->squareEnPassant = std::make_pair(x, y);
+    this->squareEnPassant = {x, y};
 }
 
 void Position::setEnPassant(std::pair<int, int> enPassant) {
@@ -393,65 +395,78 @@ static void genCastling(const Position& pos, bool side, int kx, int ky, std::vec
 
 std::vector<Move> Position::getLegalMoves() const {
     std::vector<Move> pseudo;
+    const bool white = isWhiteToMove();
 
-    const bool side = isWhiteToMove();
-    const int pawnDir = side ? 1 : -1;
-    const int startRank = side ? 1 : 6;
-    const int promoRank = side ? 7 : 0;
-
-    // find king
-    int kx = -1, ky = -1;
-
-    // generate pseudo moves
     for (int x = 0; x < 8; ++x) {
         for (int y = 0; y < 8; ++y) {
             Piece p = getPiece(x, y);
-            if (p.getType() == EMPTY || p.isWhite() != side) continue;
+            if (p.getType() == EMPTY) continue;
+            if (p.isWhite() != white) continue;
 
             switch (p.getType()) {
                 case PAWN: {
-                    int ny = y + pawnDir;
+                    int dir = white ? 1 : -1;
+                    int startRank = white ? 1 : 6;
+                    int promoteRank = white ? 7 : 0;
 
-                    // вперёд на 1
-                    if (inBoard(x, ny) && getPiece(x, ny).getType() == EMPTY) {
-                        add_promotion_or_push(pseudo, x,y, x,ny, ny==promoRank);
+                    // вперед 1 (по Y)
+                    int fy = y + dir;
+                    if (inBoard(x, fy) && getPiece(x, fy).getType() == EMPTY) {
+                        if (fy == promoteRank) {
+                            for (Figures promo : {QUEEN, ROOK, BISHOP, KNIGHT})
+                                pseudo.push_back({x, y, x, fy, promo});
+                        } else {
+                            pseudo.push_back({x, y, x, fy, EMPTY});
+                        }
 
-                        // на 2 со старта
-                        int nny = y + 2*pawnDir;
-                        if (y == startRank && getPiece(x, nny).getType() == EMPTY)
-                            pseudo.push_back({x,y, x,nny, EMPTY});
-                    }
-
-                    // взятия
-                    for (int dx : {-1, 1}) {
-                        int nx = x + dx;
-                        if (!inBoard(nx, ny)) continue;
-                        Piece t = getPiece(nx, ny);
-                        if (t.getType() != EMPTY && t.isWhite() != side) {
-                            add_promotion_or_push(pseudo, x,y, nx,ny, ny==promoRank);
+                        // вперед 2 (только со старта и если промежуток пуст)
+                        int fy2 = y + 2 * dir;
+                        if (y == startRank && inBoard(x, fy2) &&
+                            getPiece(x, fy2).getType() == EMPTY && getPiece(x, fy).getType() == EMPTY) {
+                            pseudo.push_back({x, y, x, fy2, EMPTY});
                         }
                     }
 
-                    // en passant
+                    // взятия по диагонали
+                    for (int dx : {-1, 1}) {
+                        int nx = x + dx, ny = y + dir;
+                        if (!inBoard(nx, ny)) continue;
+                        Piece target = getPiece(nx, ny);
+                        if (target.getType() != EMPTY && target.isWhite() != white) {
+                            if (ny == promoteRank) {
+                                for (Figures promo : {QUEEN, ROOK, BISHOP, KNIGHT})
+                                    pseudo.push_back({x, y, nx, ny, promo});
+                            } else {
+                                pseudo.push_back({x, y, nx, ny, EMPTY});
+                            }
+                        }
+                    }
+
+                    // en-passant (если ep хранит координату клетки, на которую пойдет побившая пешка)
                     auto ep = getEnPassant();
                     if (ep.first != -1 && ep.second != -1) {
-                        if (ep.second == ny && std::abs(ep.first - x) == 1) {
-                            Move m{ x,y, ep.first, ep.second, EMPTY, true, false, false };
+                        int nx = ep.first, ny = ep.second;
+                        if (ny == y + dir && std::abs(nx - x) == 1) {
+                            Move m{x, y, nx, ny, EMPTY};
+                            m.isEnPassant = true;
                             pseudo.push_back(m);
                         }
                     }
-                } break;
+                    break;
+                }
 
                 case KNIGHT: {
-                    static const int d[8][2] = {{1,2},{2,1},{-1,2},{-2,1},{1,-2},{2,-1},{-1,-2},{-2,-1}};
-                    for (auto &v : d) {
-                        int nx = x+v[0], ny = y+v[1];
-                        if (!inBoard(nx,ny)) continue;
+                    static const int kdx[8] = {1,2,2,1,-1,-2,-2,-1};
+                    static const int kdy[8] = {2,1,-1,-2,-2,-1,1,2};
+                    for (int i = 0; i < 8; ++i) {
+                        int nx = x + kdx[i], ny = y + kdy[i];
+                        if (!inBoard(nx, ny)) continue;
                         Piece t = getPiece(nx, ny);
-                        if (t.getType()==EMPTY || t.isWhite()!=side)
-                            pseudo.push_back({x,y,nx,ny,EMPTY});
+                        if (t.getType() == EMPTY || t.isWhite() != white)
+                            pseudo.push_back({x, y, nx, ny, EMPTY});
                     }
-                } break;
+                    break;
+                }
 
                 case BISHOP:
                 case ROOK:
@@ -461,66 +476,62 @@ std::vector<Move> Position::getLegalMoves() const {
                         {1,1},{1,-1},{-1,1},{-1,-1}
                     };
                     int i0 = 0, i1 = 8;
-                    if (p.getType()==BISHOP) { i0 = 4; i1 = 8; }
-                    else if (p.getType()==ROOK) { i0 = 0; i1 = 4; }
-                    for (int i=i0;i<i1;++i) {
-                        int dx=dirs[i][0], dy=dirs[i][1];
-                        int nx=x+dx, ny=y+dy;
-                        while (inBoard(nx,ny)) {
+                    if (p.getType() == ROOK) { i0 = 0; i1 = 4; }
+                    else if (p.getType() == BISHOP) { i0 = 4; i1 = 8; }
+                    for (int i = i0; i < i1; ++i) {
+                        int dx = dirs[i][0], dy = dirs[i][1];
+                        int nx = x + dx, ny = y + dy;
+                        while (inBoard(nx, ny)) {
                             Piece t = getPiece(nx, ny);
-                            if (t.getType()==EMPTY) {
-                                pseudo.push_back({x,y,nx,ny,EMPTY});
+                            if (t.getType() == EMPTY) {
+                                pseudo.push_back({x, y, nx, ny, EMPTY});
                             } else {
-                                if (t.isWhite()!=side) pseudo.push_back({x,y,nx,ny,EMPTY});
+                                if (t.isWhite() != white)
+                                    pseudo.push_back({x, y, nx, ny, EMPTY});
                                 break;
                             }
-                            nx+=dx; ny+=dy;
+                            nx += dx; ny += dy;
                         }
                     }
-                } break;
+                    break;
+                }
 
                 case KING: {
-                    static const int kd[8][2] = {
-                        {1,0},{-1,0},{0,1},{0,-1},
-                        {1,1},{1,-1},{-1,1},{-1,-1}
-                    };
-                    for (auto &v: kd) {
-                        int nx=x+v[0], ny=y+v[1];
-                        if (!inBoard(nx,ny)) continue;
-                        Piece t = getPiece(nx, ny);
-                        if (t.getType()==EMPTY || t.isWhite()!=side)
-                            pseudo.push_back({x,y,nx,ny,EMPTY});
+                    for (int dx = -1; dx <= 1; ++dx) {
+                        for (int dy = -1; dy <= 1; ++dy) {
+                            if (dx == 0 && dy == 0) continue;
+                            int nx = x + dx, ny = y + dy;
+                            if (!inBoard(nx, ny)) continue;
+                            Piece t = getPiece(nx, ny);
+                            if (t.getType() == EMPTY || t.isWhite() != white)
+                                pseudo.push_back({x, y, nx, ny, EMPTY});
+                        }
                     }
-                    kx = x; ky = y;
-                } break;
 
+                    genCastling(*this, white, x, y, pseudo);
+                    break;
+                }
                 default: break;
-            }
-        }
-    }
+            } // switch
+        } // for y
+    } // for x
 
-    // полные проверки рокировки (после того как нашли короля)
-    if (kx!=-1) {
-        genCastling(*this, side, kx, ky, pseudo);
-    }
-
-    // --- фильтрация: оставить только ходы, после которых свой король не под шахом ---
+    // Фильтрация: оставляем только ходы, которые НЕ оставляют короля под шахом
     std::vector<Move> legal;
     legal.reserve(pseudo.size());
-
-    for (const auto& m : pseudo) {
+    for (const auto &m : pseudo) {
         Position copy = *this;
-        bool moverIsWhite = copy.isWhiteToMove();
+        bool moverWasWhite = copy.isWhiteToMove();
 
-        ::applyMove(copy, m);
+        // применяем ход (applyMove у тебя уже переключает сторону внутри)
+        copy.applyMove(m);
 
-        // вернуть очередь обратно для проверки шаха своего короля
-        copy.setIsWhiteMove(moverIsWhite);
+        // вернуть сторону к ходившему, чтобы isCheck проверял короля ходившего цвета
+        copy.setIsWhiteMove(moverWasWhite);
         if (!copy.isCheck()) {
             legal.push_back(m);
         }
-        // восстановить как после настоящего хода (для консистентности копии)
-        copy.setIsWhiteMove(!moverIsWhite);
+        // (не нужно восстанавливать copy дальше — он временный)
     }
 
     return legal;

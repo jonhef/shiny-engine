@@ -1,6 +1,7 @@
 #include <sstream>
 #include <string>
 #include <iostream>
+#include <unordered_map>
 
 #include "position/position.h"
 #include "fen/fen.h"
@@ -8,47 +9,48 @@
 #include "searching/searching.h"
 #include "uci.h"
 
-// convert into move
+constexpr int THREADS = 32;
+
+// UCI → Move
 Move parseUCIMove(const std::string& moveStr) {
     Move m{};
-    // буквы файлов → 0..7
-    m.fromY = moveStr[0] - 'a';
-    m.fromX = moveStr[1] - '1';
-    m.toY   = moveStr[2] - 'a';
-    m.toX   = moveStr[3] - '1';
+    m.fromX = moveStr[0] - 'a';  // file
+    m.fromY = moveStr[1] - '1';  // rank
+    m.toX   = moveStr[2] - 'a';
+    m.toY   = moveStr[3] - '1';
 
     m.promotion = EMPTY;
     if (moveStr.size() == 5) {
-        char promo = moveStr[4];
-        switch (promo) {
+        switch (moveStr[4]) {
             case 'q': m.promotion = QUEEN; break;
-            case 'r': m.promotion = ROOK; break;
-            case 'b': m.promotion = BISHOP; break;
-            case 'n': m.promotion = KNIGHT; break;
-            default: m.promotion = EMPTY; break;
+            case 'r': m.promotion = ROOK;  break;
+            case 'b': m.promotion = BISHOP;break;
+            case 'n': m.promotion = KNIGHT;break;
+            default: break;
         }
     }
-
     return m;
 }
 
+// Move → UCI
 std::string encodeUCIMove(const Move& mv) {
-    std::string res = "";
-    res += mv.fromY + 'a';
-    res += mv.fromX + '1';
-    res +=   mv.toY + 'a';
-    res +=   mv.toX + '1';
+    std::string res;
+    res += char('a' + mv.fromX);  // file
+    res += char('1' + mv.fromY);  // rank
+    res += char('a' + mv.toX);
+    res += char('1' + mv.toY);
     if (mv.promotion != EMPTY) {
         switch (mv.promotion) {
-            case QUEEN: res += "q"; break;
-            case ROOK: res += "r"; break;
-            case BISHOP: res += "b"; break;
-            case KNIGHT: res += "n"; break;
+            case QUEEN:  res += 'q'; break;
+            case ROOK:   res += 'r'; break;
+            case BISHOP: res += 'b'; break;
+            case KNIGHT: res += 'n'; break;
             default: break;
         }
     }
     return res;
 }
+
 
 // Обработка UCI-команды "position ..."
 void handlePosition(const std::string& line, Position& pos) {
@@ -113,9 +115,9 @@ void handleGo(const std::string& line, Position& pos, TranspositionTable& tt) {
 
     if (depth > 0) {
         // ограничение по глубине
-        res = iterativeDeepeningDepth(pos, depth, tt);
+        res = iterativeDeepeningThreadsDepth(pos, depth, tt, THREADS);
     } else if (movetime > 0) {
-        res = iterativeDeepeningTime(pos, movetime, tt);
+        res = iterativeDeepeningThreadsTime(pos, movetime, tt, THREADS);
     } else {
         // простая эвристика для лимита по времени
         int myTime = pos.isWhiteToMove() ? wtime : btime;
@@ -124,8 +126,12 @@ void handleGo(const std::string& line, Position& pos, TranspositionTable& tt) {
         int moves = movestogo > 0 ? movestogo : 30;
         int alloc = myTime / moves + inc;
         if (alloc < 50) alloc = 50;
-        res = iterativeDeepeningTime(pos, alloc, tt);
+        res = iterativeDeepeningThreadsTime(pos, alloc, tt, THREADS);
     }
 
     std::cout << "bestmove " << encodeUCIMove(res.bestMove) << std::endl;
+}
+
+void handleOpts(const std::string& line, std::unordered_map<std::string, std::string>& opts) {
+
 }

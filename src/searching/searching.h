@@ -33,5 +33,10 @@ constexpr inline int computeTimeForMove(int timeLeftMs, int incrementMs, int mov
     return timeForMove;
 }
 
+SearchResult iterativeDeepeningThreadsDepth(Position& pos, int maxDepth, TranspositionTable& tt);
+SearchResult iterativeDeepeningThreadsTime(Position& pos, int timeMillis, TranspositionTable& tt);
+
+SearchResult iterativeDeepeningThreadsDepth(Position& pos, int maxDepth, TranspositionTable& tt, int numThreads);
+SearchResult iterativeDeepeningThreadsTime(Position& pos, int timeMillis, TranspositionTable& tt, int numThreads);
 
 #endif // SEARCHING_H

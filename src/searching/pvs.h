@@ -2,10 +2,12 @@
 #define PVS_H
 
 #include "position/position.h"
+#include <shared_mutex>
 
 struct SearchResult {
     int score;
     Move bestMove;
+    int depth = 0;
 };
 
 #include <cstdint>
@@ -31,16 +33,21 @@ struct TTEntry {
 };
 
 // сама таблица
+
 class TranspositionTable {
 public:
     explicit TranspositionTable(size_t sizeMB = 64);
     bool probe(uint64_t key, int depth, int alpha, int beta, int& score, Move& best);
     void store(uint64_t key, int depth, int score, BoundType bound, const Move& best);
 
+    void clear();
 private:
     std::vector<TTEntry> table;
+    mutable std::shared_mutex tableMutex;
+    size_t sizeMB;
 };
 
+int quiescence(Position& pos, int alpha, int beta);
 SearchResult pvs(Position& pos, int depth, int alpha, int beta, bool maximizingPlayer, TranspositionTable& tt);
 
 #endif // PVS_H
